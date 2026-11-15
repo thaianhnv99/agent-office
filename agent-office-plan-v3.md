@@ -729,7 +729,7 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
   - `/compact`, `/clear`, `--resume`;
   - đóng tab terminal đột ngột;
   - 2 session trong cùng thư mục.
-- [ ] **S2.** Thử `claude agents --json` trong terminal VS Code:
+- [x] **S2.** Thử `claude agents --json` trong terminal VS Code: *(xong 16/11/2026: `docs/spikes/s2-agents-json.md`)*
   - session tương tác có xuất hiện không;
   - có những trường nào;
   - mỗi lần gọi tốn bao nhiêu thời gian/CPU;
@@ -1063,7 +1063,7 @@ Các điểm dưới đây chưa được đối chiếu đầy đủ với tài
 | Phạm vi cô lập thật của `--plugin-dir` | Đã kiểm ở S0 (`docs/spikes/s0-isolation.md`) |
 | Hook nạp qua `--settings` có được gộp với hook khác không | Đã kiểm ở S0 (`docs/spikes/s0-isolation.md`) |
 | Statusline đặt ở cấp dự án được không; session sandbox có nạp `CLAUDE.md` ở thư mục cha không | Đã kiểm ở S0 (`docs/spikes/s0-isolation.md`) |
-| `claude agents --json` có khởi động supervisor không | S2 |
+| `claude agents --json` có khởi động supervisor không | Đã kiểm ở S2: không (`docs/spikes/s2-agents-json.md`) |
 | MCP server của channel làm gì khi server của app tắt | S3 |
 | Cách ghép yêu cầu từ `PermissionRequest` với yêu cầu từ channel | S1, S3 |
 | Shim và đường dẫn Node có chứa số phiên bản | S8 |
