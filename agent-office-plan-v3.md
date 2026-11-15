@@ -718,7 +718,7 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
   - chỉ commit fixture đã scrub hoặc fixture tổng hợp;
   - quét secret ở pre-commit bằng công cụ cài qua pnpm (vd secretlint), không cài gì qua Homebrew; gitleaks chạy ở CI;
   - trước lần push công khai đầu tiên: quét secret trên toàn bộ lịch sử git, vì repo public thì mọi commit đều lộ ra.
-- [ ] **Repo và quản lý dự án (1-2 giờ):** `git init`, tạo board dự án (11.1), viết Định nghĩa hoàn thành.
+- [x] **Repo và quản lý dự án (1-2 giờ):** `git init`, tạo board dự án (11.1), viết Định nghĩa hoàn thành. *(xong 15/11/2026: [board](https://github.com/users/thaianhnv99/projects/1), `docs/definition-of-done.md`, `docs/journal.md`)*
 - [ ] **S0.** Tạo dự án sandbox ở mức 1 tại `~/agent-office-sandbox/` (mục 9.2) và kiểm tra các câu ở dòng S0 trong bảng trên. Không đặt hook vào cấu hình toàn cục.
 - [ ] **S1.** Trong dự án sandbox, viết một hook async chỉ ghi lại mọi sự kiện vào `.dev-raw/`. Chạy các kịch bản sau và so sánh ba nguồn hooks, `claude agents --json`, transcript:
   - duyệt quyền; từ chối quyền;

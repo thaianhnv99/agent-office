@@ -17,6 +17,9 @@ Requirements: Node 22 (see `.nvmrc`) and git. Nothing else is installed system-w
 corepack downloads in `.cache/`, so development does not write to tool directories shared with
 other projects.
 
+Every task follows the [Definition of Done](docs/definition-of-done.md). Work is tracked on the
+[project board](https://github.com/users/thaianhnv99/projects/1).
+
 > **Never put hooks in the global Claude Code config (`~/.claude/settings.json`) while developing.**
 > A broken global hook affects every session of every project on the machine.
 
