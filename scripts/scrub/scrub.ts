@@ -51,7 +51,8 @@ const SECRET_PATTERNS: ReadonlyArray<{ rule: string; pattern: RegExp; replacemen
   },
   {
     rule: 'assigned-secret',
-    pattern: /(\b[A-Za-z0-9_]*(?:api[_-]?key|secret|token|passw(?:or)?d)["']?\s*[:=]\s*["']?)[^\s"',;]{8,}/gi,
+    // The value must contain a letter, so numbers such as token limits stay readable.
+    pattern: /(\b[A-Za-z0-9_]*(?:api[_-]?key|secret|token|passw(?:or)?d)["']?\s*[:=]\s*["']?)(?=[^\s"',;]*[A-Za-z])[^\s"',;]{8,}/gi,
     replacement: '$1[REDACTED:assigned-secret]',
   },
 ];

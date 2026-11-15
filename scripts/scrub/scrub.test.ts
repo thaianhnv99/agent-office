@@ -48,6 +48,12 @@ describe('scrubText', () => {
     expect(out).toContain('[REDACTED:');
   });
 
+  it('keeps numbers that follow secret-like names, such as token limits', () => {
+    expect(scrubText('{"max_token":123456789,"page_token": 9876543210}', ctx)).toBe(
+      '{"max_token":123456789,"page_token": 9876543210}',
+    );
+  });
+
   it('replaces email addresses', () => {
     expect(scrubText('mail jane.doe+x@corp.io now', ctx)).toBe('mail user@example.com now');
   });
