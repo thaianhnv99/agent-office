@@ -1,0 +1,23 @@
+{
+  "name": "agent-office",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.28.10",
+  "engines": {
+    "node": "^22.18.0"
+  },
+  "scripts": {
+    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@secretlint/node": "13.1.0",
+    "@secretlint/secretlint-rule-preset-recommend": "13.1.0",
+    "@types/node": "22.20.5",
+    "secretlint": "13.1.0",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

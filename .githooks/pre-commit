@@ -1,0 +1,4 @@
+#!/bin/sh
+# Data-hygiene guard (plan M0): blocks raw captures, this machine's home path and secrets.
+# Enabled per clone by `./scripts/pnpm install` (the prepare script sets core.hooksPath=.githooks).
+exec node "$(dirname "$0")/../scripts/pre-commit/run.ts"

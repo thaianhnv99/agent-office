@@ -1,0 +1,7 @@
+# Keep pnpm's store and metadata cache inside the repo instead of the user-wide
+# ~/Library/pnpm/store and ~/Library/Caches/pnpm shared with other projects (plan §9.2).
+# stateDir cannot be set here; scripts/pnpm sets it through the environment.
+storeDir: .cache/pnpm-store
+cacheDir: .cache/pnpm-cache
+updateNotifier: false
+saveExact: true

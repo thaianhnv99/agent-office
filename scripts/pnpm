@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Run the pinned pnpm through corepack with every cache and state dir inside .cache/,
+# so development never writes to user-wide tool directories (plan §9.2).
+# Uses `corepack pnpm`; never run `corepack enable`, which adds shims next to the Node binary.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+export COREPACK_HOME="$root/.cache/corepack"
+export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+export pnpm_config_state_dir="$root/.cache/pnpm-state"
+
+exec corepack pnpm "$@"

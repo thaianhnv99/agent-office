@@ -1,0 +1,15 @@
+# Dependencies and tool output
+node_modules/
+coverage/
+*.log
+
+# Dev data, raw captures and caches stay inside the repo but never enter git (plan §9.2).
+# .dev-raw/ holds unscrubbed captures from M0: only scrubbed copies in fixtures/ may be committed.
+.dev-data/
+.dev-raw/
+.cache/
+
+# Local Claude Code settings for this checkout
+.claude/settings.local.json
+
+.DS_Store
