@@ -36,7 +36,7 @@ có hook nào và không bị sửa (hash giữ nguyên trước và sau spike).
 | `CLAUDE_CONFIG_DIR` cô lập được gì | Cấu hình, `.claude.json`, plugin, transcript, `session-env` (E5). **Đăng nhập không dùng chung**: mỗi thư mục cấu hình cần `/login` riêng, tạo thêm một entry Keychain |
 | `--plugin-dir` cô lập được gì | Nạp plugin cho riêng phiên đó, không cài vào danh sách plugin. Nhưng vẫn tạo `~/.claude/plugins/data/<tên>-inline` (E4) |
 | Hook nạp qua `--settings` có gộp với hook khác không | **Có**: gộp với hook của dự án và của plugin (E2); chạy được ở dự án không có cấu hình (E2b) |
-| Statusline đặt ở cấp dự án được không | Tài liệu nói được. *Chờ kiểm tra tương tác (bên dưới)* |
+| Statusline đặt ở cấp dự án được không | **Có**: lệnh statusline trong `.claude/settings.local.json` của sandbox được gọi ở cả 3 phiên tương tác |
 | `CLAUDE.md` ở thư mục cha có bị nạp không | **Có**, Claude Code tìm ngược lên (E1b). Phía trên `~/agent-office-sandbox` không có `CLAUDE.md` nào, nên sandbox sạch. Riêng `~/.claude/CLAUDE.md` luôn được nạp: là file cấp người dùng, và khi tắt nguồn `user` (E3) nó vẫn được nạp dưới nhãn Project vì `~` là thư mục tổ tiên của sandbox |
 
 ## Phát hiện khác
@@ -49,7 +49,9 @@ có hook nào và không bị sửa (hash giữ nguyên trước và sau spike).
   dùng `--setting-sources project,local` (E3).
 - Mỗi phiên tạo `~/.claude/session-env/<session-id>/` (giá trị của `CLAUDE_ENV_FILE`).
 
-## Đề xuất cho câu hỏi 11 (mức cô lập cho các spike M0)
+## Câu hỏi 11: đã chốt (15/11/2026)
+
+Chủ dự án chọn theo đề xuất:
 
 - **S1, S2, S6, S7: mức 1** (sandbox) chạy kèm `--setting-sources project,local` để dữ liệu không lẫn
   hook của plugin cấp người dùng. Không cần đăng nhập lại, không đụng Keychain.
@@ -61,14 +63,25 @@ có hook nào và không bị sửa (hash giữ nguyên trước và sau spike).
 Dữ liệu cho câu hỏi 14: cách (b) `scripts/claude-ao` (gọi `claude --settings <file hook>`) dùng được,
 hook gộp với hook của dự án và plugin, và không ghi gì vào dự án (E2, E2b).
 
-## Chờ kiểm tra tương tác
+## Kiểm tra tương tác
 
-Statusline và hộp thoại trust chỉ có ở phiên tương tác:
+Statusline và hộp thoại trust chỉ có ở phiên tương tác. Chủ dự án mở `claude --model haiku` trong
+terminal:
 
-- [ ] Hộp thoại workspace trust hiện khi mở sandbox lần đầu; chọn thoát thì không hook nào chạy
-- [ ] Sau khi chấp nhận trust: hook của sandbox chạy trong phiên tương tác
-- [ ] Statusline cấp dự án hiện dòng `agent-office S0 statusline`, và lệnh statusline nhận được JSON
-  (xem trước cho S7: `rate_limits`, `process.pid`)
+- [x] **Sau khi trust sandbox, hook chạy trong phiên tương tác.** 3 phiên, mỗi phiên có `SessionStart`,
+  `InstructionsLoaded` (User và Project) và `SessionEnd` với `reason: prompt_input_exit`.
+- [x] **Statusline cấp dự án được gọi** ở cả 3 phiên.
+- [x] **Từ chối trust thì không gì chạy.** Thử ở một thư mục chưa từng được trust (thư mục tạm, không
+  có thư mục cha nào đã trust), có hook và statusline riêng: không hook nào chạy, lệnh statusline cũng
+  không chạy, Claude Code không ghi entry trust nào. Log trống, nên ý này dựa trên việc hộp thoại đã
+  hiện và đã bị từ chối.
+
+Xem trước cho S7, từ JSON lệnh statusline nhận được:
+
+- `rate_limits.five_hour` và `rate_limits.seven_day` có `used_percentage` và `resets_at`, nhưng chỉ có
+  trong 1 trên 4 lần gọi.
+- **Không có `process.pid`** trong bản 2.1.325 (mục 4 của plan dự đoán là có). Trong mỗi phiên, hook và
+  lệnh statusline có cùng `ppid`, nhiều khả năng là pid của tiến trình Claude Code; S5 và S7 xác nhận.
 
 ## Dọn dẹp
 

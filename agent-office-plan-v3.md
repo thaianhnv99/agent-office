@@ -719,7 +719,7 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
   - quét secret ở pre-commit bằng công cụ cài qua pnpm (vd secretlint), không cài gì qua Homebrew; gitleaks chạy ở CI;
   - trước lần push công khai đầu tiên: quét secret trên toàn bộ lịch sử git, vì repo public thì mọi commit đều lộ ra.
 - [x] **Repo và quản lý dự án (1-2 giờ):** `git init`, tạo board dự án (11.1), viết Định nghĩa hoàn thành. *(xong 15/11/2026: [board](https://github.com/users/thaianhnv99/projects/1), `docs/definition-of-done.md`, `docs/journal.md`)*
-- [ ] **S0.** Tạo dự án sandbox ở mức 1 tại `~/agent-office-sandbox/` (mục 9.2) và kiểm tra các câu ở dòng S0 trong bảng trên. Không đặt hook vào cấu hình toàn cục.
+- [x] **S0.** Tạo dự án sandbox ở mức 1 tại `~/agent-office-sandbox/` (mục 9.2) và kiểm tra các câu ở dòng S0 trong bảng trên. Không đặt hook vào cấu hình toàn cục. *(xong 15/11/2026: `docs/spikes/s0-isolation.md`)*
 - [ ] **S1.** Trong dự án sandbox, viết một hook async chỉ ghi lại mọi sự kiện vào `.dev-raw/`. Chạy các kịch bản sau và so sánh ba nguồn hooks, `claude agents --json`, transcript:
   - duyệt quyền; từ chối quyền;
   - nhấn Esc lúc agent đang nghĩ; nhấn Esc lúc Bash đang chạy;
@@ -1038,7 +1038,7 @@ Phần giữ nguyên từ v2: 30-43 giờ. Thêm theo review: 13-21 giờ. Thêm
 | 8 | Nhân vật đi lại được, hay chỉ có animation tại chỗ? | Trước D3 (đầu M3) | Chênh khoảng 10-20 giờ |
 | 9 | Phong cách pixel: tile 16×16 hay 32×32; nhìn từ trên xuống hay góc 3/4; tự vẽ hay dùng gói CC0? | Trước D3 (đầu M3) | Art direction |
 | 10 | Đặt dự án sandbox ở đâu? | **Đã chốt (15/11): `~/agent-office-sandbox/`** | Ngoại lệ đã được đồng ý của ràng buộc "mọi dữ liệu dev trong repo" (mục 9.2) |
-| 11 | Dùng mức cô lập nào cho các spike M0: mức 1 hay mức 2? | Sau spike S0 (đầu M0) | Phụ thuộc kết quả kiểm chứng `CLAUDE_CONFIG_DIR` và `--plugin-dir`. File dev-isolation đề xuất hạn "trước M0", nhưng câu này cần kết quả của S0 |
+| 11 | Dùng mức cô lập nào cho các spike M0: mức 1 hay mức 2? | **Đã chốt (15/11): mức 1 kèm `--setting-sources project,local`; spike cần plugin dùng `--plugin-dir`; mức 2 khi thật cần** | Phụ thuộc kết quả kiểm chứng `CLAUDE_CONFIG_DIR` và `--plugin-dir`. File dev-isolation đề xuất hạn "trước M0", nhưng câu này cần kết quả của S0 |
 | 12 | Có cần tài khoản macOS riêng hoặc máy ảo cho kiểm thử cài đặt (mức 3) không? | Trước M3.5 | Thời gian chuẩn bị; tiêu chí "cài không quá 15 phút" ở M3.5 |
 | 13 | Dự án thật nào được bật hook đầu tiên? | Trước tuần dùng thử của M1 | Nên chọn dự án ít quan trọng. File dev-isolation đề xuất "sau khi qua M1", nhưng "Xong khi" của M1 đã cần dùng thật 1 tuần |
 | 14 | Bước 1 bật hook bằng cách nào: ghi `.claude/settings.local.json` của dự án, hay mở Claude Code qua `scripts/claude-ao` (không ghi gì vào dự án)? | Trước tuần dùng thử của M1 | Cách thứ hai không đụng file của dự án, nhưng cần kiểm chứng ở S0 |
@@ -1059,10 +1059,10 @@ Các điểm dưới đây chưa được đối chiếu đầy đủ với tài
 
 | Điểm | Xác nhận ở |
 |---|---|
-| `CLAUDE_CONFIG_DIR` cô lập được gì (cấu hình, plugin, transcript, đăng nhập) **[chưa kiểm chứng]** | S0 |
-| Phạm vi cô lập thật của `--plugin-dir` **[chưa kiểm chứng]** | S0 |
-| Hook nạp qua `--settings` có được gộp với hook khác không **[chưa kiểm chứng]** | S0 |
-| Statusline đặt ở cấp dự án được không; session sandbox có nạp `CLAUDE.md` ở thư mục cha không | S0 |
+| `CLAUDE_CONFIG_DIR` cô lập được gì (cấu hình, plugin, transcript, đăng nhập) | Đã kiểm ở S0 (`docs/spikes/s0-isolation.md`) |
+| Phạm vi cô lập thật của `--plugin-dir` | Đã kiểm ở S0 (`docs/spikes/s0-isolation.md`) |
+| Hook nạp qua `--settings` có được gộp với hook khác không | Đã kiểm ở S0 (`docs/spikes/s0-isolation.md`) |
+| Statusline đặt ở cấp dự án được không; session sandbox có nạp `CLAUDE.md` ở thư mục cha không | Đã kiểm ở S0 (`docs/spikes/s0-isolation.md`) |
 | `claude agents --json` có khởi động supervisor không | S2 |
 | MCP server của channel làm gì khi server của app tắt | S3 |
 | Cách ghép yêu cầu từ `PermissionRequest` với yêu cầu từ channel | S1, S3 |
