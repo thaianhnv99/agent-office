@@ -1043,8 +1043,8 @@ Phần giữ nguyên từ v2: 30-43 giờ. Thêm theo review: 13-21 giờ. Thêm
 | 13 | Dự án thật nào được bật hook đầu tiên? | Trước tuần dùng thử của M1 | Nên chọn dự án ít quan trọng. File dev-isolation đề xuất "sau khi qua M1", nhưng "Xong khi" của M1 đã cần dùng thật 1 tuần |
 | 14 | Bước 1 bật hook bằng cách nào: ghi `.claude/settings.local.json` của dự án, hay mở Claude Code qua `scripts/claude-ao` (không ghi gì vào dự án)? | Trước tuần dùng thử của M1 | Cách thứ hai không đụng file của dự án, nhưng cần kiểm chứng ở S0 |
 | 15 | Có đưa LaunchAgent opt-in vào v0.1 không, hay để bản sau? | Trước M3.5 | Mặc định đề xuất: v0.1 chỉ có `SessionStart`. Nếu để bản sau thì M3.5 bớt 3-5 giờ |
-| 16 | License: MIT (đề xuất) hay license khác? | Trước lần push công khai đầu tiên | Ghi vào `LICENSE` và README. Asset có license riêng, ghi trong `CREDITS.md` |
-| 17 | Công khai repo từ khi nào: ngay từ đầu (M0/M1), hay khi phát hành v0.1? | Trước lần push đầu tiên lên GitHub | Công khai sớm thì có lịch sử commit để giới thiệu, nhưng mọi commit lộ ra ngay, nên vệ sinh dữ liệu phải chạy từ commit đầu tiên. Công khai ở v0.1 thì có thời gian dọn dẹp, nhưng phải quét secret toàn bộ lịch sử git trước khi mở |
+| 16 | License: MIT (đề xuất) hay license khác? | **Đã chốt (15/11): MIT** | Ghi vào `LICENSE` và README. Asset có license riêng, ghi trong `CREDITS.md` |
+| 17 | Công khai repo từ khi nào: ngay từ đầu (M0/M1), hay khi phát hành v0.1? | **Đã chốt (15/11): công khai từ M0** | Công khai sớm thì có lịch sử commit để giới thiệu, nhưng mọi commit lộ ra ngay, nên vệ sinh dữ liệu phải chạy từ commit đầu tiên. Công khai ở v0.1 thì có thời gian dọn dẹp, nhưng phải quét secret toàn bộ lịch sử git trước khi mở |
 
 ## 15. Bước tiếp theo
 

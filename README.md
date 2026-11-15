@@ -46,3 +46,7 @@ This repository is public, and git history cannot be cleaned after a push.
   ```sh
   ./scripts/gitleaks git --redact --verbose .
   ```
+
+## License
+
+[MIT](LICENSE). Art assets will carry their own licenses, listed in `assets/CREDITS.md`.
