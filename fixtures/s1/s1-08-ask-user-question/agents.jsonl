@@ -1,0 +1,19 @@
+{"t":1794761857011,"sessions":[]}
+{"t":1794761858146,"sessions":[]}
+{"t":1794761859263,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"idle"}]}
+{"t":1794761860385,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"busy"}]}
+{"t":1794761861494,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"busy"}]}
+{"t":1794761862664,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"waiting","waitingFor":"input needed"}]}
+{"t":1794761863799,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"waiting","waitingFor":"input needed"}]}
+{"t":1794761864936,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"waiting","waitingFor":"input needed"}]}
+{"t":1794761866085,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"busy"}]}
+{"t":1794761867229,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"idle"}]}
+{"t":1794761868347,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"idle"}]}
+{"t":1794761869464,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"idle"}]}
+{"t":1794761870608,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"idle"}]}
+{"t":1794761871730,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"idle"}]}
+{"t":1794761872868,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"idle"}]}
+{"t":1794761873994,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"idle"}]}
+{"t":1794761875165,"sessions":[{"pid":3211,"cwd":"/Users/user/project-1","kind":"interactive","startedAt":1794761858669,"sessionId":"c8fbcf88-6fd4-4e7b-8815-3ec1faa0b38c","name":"project-1-0f","status":"idle"}]}
+{"t":1794761876281,"sessions":[]}
+{"t":1794761877419,"sessions":[]}

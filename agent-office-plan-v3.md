@@ -126,7 +126,7 @@ Codex CLI / Cursor ────────────────────�
 | MCP server của plugin (channel) | Duyệt quyền; tín hiệu sống (stdin đóng nghĩa là session đã kết thúc, kể cả khi crash) | Channel đang là research preview; plugin tự viết cần cờ `--dangerously-load-development-channels` |
 | OpenTelemetry (tuỳ chọn) | `claude_code.tool_decision` (accept/reject), `claude_code.api_request` | Mặc định 5 giây mới xuất một lần; để sau |
 
-Bảng ánh xạ sang sự kiện chuẩn hoá (phải xác nhận bằng dữ liệu thật ở M0):
+Bảng ánh xạ sang sự kiện chuẩn hoá (đã đối chiếu bằng dữ liệu thật ở S1: đúng phần lớn, cần sửa 5 dòng, xem `docs/spikes/s1-events.md`; ADR-001 chốt bảng đã sửa):
 
 | Hook / nguồn | → `type` |
 |---|---|
@@ -720,7 +720,7 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
   - trước lần push công khai đầu tiên: quét secret trên toàn bộ lịch sử git, vì repo public thì mọi commit đều lộ ra.
 - [x] **Repo và quản lý dự án (1-2 giờ):** `git init`, tạo board dự án (11.1), viết Định nghĩa hoàn thành. *(xong 15/11/2026: [board](https://github.com/users/thaianhnv99/projects/1), `docs/definition-of-done.md`, `docs/journal.md`)*
 - [x] **S0.** Tạo dự án sandbox ở mức 1 tại `~/agent-office-sandbox/` (mục 9.2) và kiểm tra các câu ở dòng S0 trong bảng trên. Không đặt hook vào cấu hình toàn cục. *(xong 15/11/2026: `docs/spikes/s0-isolation.md`)*
-- [ ] **S1.** Trong dự án sandbox, viết một hook async chỉ ghi lại mọi sự kiện vào `.dev-raw/`. Chạy các kịch bản sau và so sánh ba nguồn hooks, `claude agents --json`, transcript:
+- [x] **S1.** Trong dự án sandbox, viết một hook async chỉ ghi lại mọi sự kiện vào `.dev-raw/`. Chạy các kịch bản sau và so sánh ba nguồn hooks, `claude agents --json`, transcript: *(xong 16/11/2026: `docs/spikes/s1-events.md`, fixture trong `fixtures/s1/`)*
   - duyệt quyền; từ chối quyền;
   - nhấn Esc lúc agent đang nghĩ; nhấn Esc lúc Bash đang chạy;
   - Bash chạy lâu sau khi duyệt;
