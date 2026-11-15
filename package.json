@@ -9,6 +9,7 @@
   },
   "scripts": {
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
+    "scrub": "node scripts/scrub/cli.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
