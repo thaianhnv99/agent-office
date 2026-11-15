@@ -42,6 +42,9 @@ describe('log-event (spike hook logger)', () => {
     });
     expect(typeof first?.['receivedAt']).toBe('number');
     expect(typeof first?.['ppid']).toBe('number');
+    // Async hooks finish out of order; the process start time orders events by when they fired.
+    expect(first?.['startedAt']).toBeTypeOf('number');
+    expect(first?.['startedAt'] as number).toBeLessThanOrEqual(first?.['receivedAt'] as number);
     expect(second).toMatchObject({ payload: { hook_event_name: 'Stop' } });
   });
 

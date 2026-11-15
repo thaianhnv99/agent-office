@@ -43,7 +43,10 @@ try {
     const file = join(rawDir, `${tag}.jsonl`);
     const env = Object.fromEntries(ENV_KEYS.flatMap((key) => (process.env[key] === undefined ? [] : [[key, process.env[key]]])));
     mkdirSync(dirname(file), { recursive: true });
-    appendFileSync(file, `${JSON.stringify({ receivedAt: Date.now(), tag, pid: process.pid, ppid: process.ppid, env, ...parse(input) })}\n`);
+    // startedAt (process start) orders async hooks by when they fired; receivedAt is when stdin was read.
+    const startedAt = Math.round(performance.timeOrigin);
+    const line = { startedAt, receivedAt: Date.now(), tag, pid: process.pid, ppid: process.ppid, env, ...parse(input) };
+    appendFileSync(file, `${JSON.stringify(line)}\n`);
   }
 } catch {
   // Never disturb the agent: a lost log line is better than a failed hook.
