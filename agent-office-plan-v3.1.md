@@ -469,6 +469,12 @@ Muốn thấy agent ở dự án nào thì dự án đó phải có hook. Đi th
 
 - Trình cài đặt ghi đường dẫn Node tuyệt đối (`process.execPath`) vào config của shim. Trên máy hiện tại đường dẫn là `~/.nvm/versions/node/v22.21.1/bin/node`, nên shim phải kiểm tra đường dẫn còn tồn tại, ghi lỗi rõ ràng vào log, và có lệnh sửa lại. Phương án thay thế: đóng gói server thành file chạy độc lập để không phụ thuộc Node của máy. Chốt ở ADR-007.
 - Shim chỉ được tạo ở bản phát hành, không tạo khi dev.
+- **Kết quả S8** (`docs/spikes/s8-packaging.md`, chờ ADR-007):
+  - hook trong `hooks.json` dùng `${CLAUDE_PLUGIN_ROOT}` vẫn đúng sau mỗi lần cập nhật, nên hook không cần shim;
+  - shim cần cho statusline (nằm trong settings người dùng) và cho việc bật server;
+  - hook chuyển sự kiện viết bằng `sh` + `curl` mất 8 ms và không cần Node (bundle Node mất khoảng 35 ms);
+  - bản plugin cũ bị xoá 14 ngày sau khi cập nhật, nên `ensure-running` phải bật lại server khi phiên bản đổi;
+  - `${CLAUDE_PLUGIN_DATA}` giữ nguyên qua các lần cập nhật và là một chỗ đặt shim cần cân nhắc.
 
 **Tham số cấu hình** (đều là đề xuất chưa đo; phải cấu hình được qua file config hoặc biến môi trường, hiệu chỉnh sau S9, soak test và kịch bản sleep/wake):
 
@@ -791,7 +797,7 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
   - lấy `pid` cha và `session_id` bằng cách nào.
 - [x] **S6.** Đo overhead mỗi tool call với ba kiểu hook: command đồng bộ (Node), `async`, `http`. Kiểm tra hook `http` hoạt động thế nào khi server tắt. *(xong 16/11/2026: `docs/spikes/s6-hook-overhead.md`)*
 - [x] **S7.** Statusline wrapper: có nhận được `rate_limits` và `process.pid` không. *(xong 16/11/2026: `docs/spikes/s7-statusline.md`)*
-- [ ] **S8.** Đóng gói plugin và đường dẫn server:
+- [x] **S8.** Đóng gói plugin và đường dẫn server: *(xong 16/11/2026: `docs/spikes/s8-packaging.md`)*
   - plugin có cần phụ thuộc lúc chạy không, có bundle được thành file JS không;
   - `${CLAUDE_PLUGIN_ROOT}` đổi mỗi khi plugin cập nhật, nên hook phải gọi qua shim ổn định nằm ngoài thư mục plugin (mục 9.2). Kiểm tra cách xử lý khi đường dẫn Node có chứa số phiên bản (máy đang dùng nvm);
   - thử plugin bằng `--plugin-dir` trong một session riêng.
