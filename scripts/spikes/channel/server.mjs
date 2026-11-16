@@ -110,7 +110,7 @@ const http = createServer((req, res) => {
 http.listen(0, '127.0.0.1', () => {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('CLAUDE')).map(([k, v]) => [k, v]));
   log({ event: 'listening', port: http.address().port, ppid: process.ppid, mode: readMode(), envKeys: Object.keys(env), env: {
-    CLAUDE_PROJECT_DIR: env.CLAUDE_PROJECT_DIR, CLAUDE_CODE_ENTRYPOINT: env.CLAUDE_CODE_ENTRYPOINT, CLAUDE_SESSION_ID: env.CLAUDE_SESSION_ID,
+    CLAUDE_PROJECT_DIR: env.CLAUDE_PROJECT_DIR, CLAUDE_CODE_ENTRYPOINT: env.CLAUDE_CODE_ENTRYPOINT, CLAUDE_CODE_SESSION_ID: env.CLAUDE_CODE_SESSION_ID,
   } });
 });
 
