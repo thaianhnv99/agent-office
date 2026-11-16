@@ -53,8 +53,13 @@ describe('spike channel server', () => {
     dir = mkdtempSync(join(tmpdir(), 'agent-office-channel-'));
   });
 
-  afterEach(() => {
-    server?.child.kill();
+  afterEach(async () => {
+    // Wait for the exit: the server logs the signal on its way out, which races a rmSync of its dir.
+    if (server && server.child.exitCode === null && server.child.signalCode === null) {
+      const exited = new Promise((done) => server.child.once('exit', done));
+      server.child.kill();
+      await exited;
+    }
     rmSync(dir, { recursive: true, force: true });
   });
 
