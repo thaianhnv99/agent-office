@@ -5,3 +5,7 @@ storeDir: .cache/pnpm-store
 cacheDir: .cache/pnpm-cache
 updateNotifier: false
 saveExact: true
+# esbuild's install script only validates the platform binary, which pnpm already installs as an
+# optional dependency, so keep it from running.
+allowBuilds:
+  esbuild: false
