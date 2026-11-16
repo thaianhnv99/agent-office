@@ -298,7 +298,7 @@ Người dùng hay sleep máy. Khi sleep, tiến trình `claude` và server ch�
 | Monorepo | pnpm workspaces, gọi qua `corepack pnpm …` (không chạy `corepack enable`); `packageManager` trong `package.json` ghim pnpm; `.nvmrc` và `engines.node` ghim Node 22 | Gồm `shared`, `server`, `web`, `plugin`, `simulator`; không sửa môi trường Node dùng chung (mục 9.2) |
 | Server | Node 22 + TypeScript + Hono | Nhẹ, có sẵn `streamSSE` |
 | Realtime | SSE cho luồng trạng thái + POST cho lệnh duyệt | Tự kết nối lại kèm `Last-Event-ID` |
-| Lưu trữ | SQLite qua `node:sqlite` có sẵn trong Node (ADR-005, đề xuất chờ duyệt); không dùng `better-sqlite3` vì là native addon, xung đột với ADR-007 | Event log gốc, snapshot, lịch sử |
+| Lưu trữ | SQLite qua `node:sqlite` có sẵn trong Node (ADR-005); không dùng `better-sqlite3` vì là native addon, xung đột với ADR-007 | Event log gốc, snapshot, lịch sử |
 | Validate | Zod | Payload từ hook, statusline, transcript |
 | Đọc transcript | `fs.watch` + đọc tăng dần theo `transcript_path` | Không cần glob cả thư mục (chokidar v4+ đã bỏ glob) |
 | Channel | Không dùng ở M1-M2 (ADR-002). Khi làm "gửi prompt từ dashboard" (backlog) mới thêm `@modelcontextprotocol/sdk` | Duyệt quyền chuyển sang hook `PermissionRequest` |
@@ -781,9 +781,9 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
   - S1 đã trả lời một phần (`docs/spikes/s1-events.md`): `SessionStart` có chạy khi resume (`source: resume`); `ppid` của tiến trình hook là pid của `claude` (trùng `claude agents --json`); đóng terminal vẫn có `SessionEnd` (`reason: other`). S6 đã trả lời: hook khi server tắt không chặn agent (`http` báo lỗi trong 1-8 ms, command `async` không làm agent chờ); server treo thì `http` chặn tới hết timeout. Còn lại: kill hẳn tiến trình (`kill -9`), timer và đồng hồ đơn điệu lúc máy ngủ.
 - [ ] Đọc 2-3 dự án tương tự: pixel-agents, pixel-agent-desk, agents-observe. Ghi lại cách họ hiển thị trạng thái và thông báo.
 - [ ] Thiết kế D1: wireframe lo-fi cho màn hình chính, chế độ danh sách, panel duyệt và luồng duyệt (mục 10.11). (3-5 giờ)
-- [ ] Viết ADR (2-3 giờ):
+- [x] Viết ADR (2-3 giờ): *(xong 16/11/2026: ADR-001 đến ADR-005 và ADR-007 trong `docs/adr/`)*
   - ADR-004: event sourcing + reducer thuần, chạy ở cả server lẫn trình duyệt; *(xong 16/11/2026: `docs/adr/ADR-004-event-sourcing.md`)*
-  - ADR-005: lưu trữ (`node:sqlite` hay `better-sqlite3`, cấu trúc event log, `schema_version`); *(viết 16/11/2026: `docs/adr/ADR-005-storage.md`, đề xuất `node:sqlite`, chờ duyệt)*
+  - ADR-005: lưu trữ (`node:sqlite` hay `better-sqlite3`, cấu trúc event log, `schema_version`); *(xong 16/11/2026: `docs/adr/ADR-005-storage.md`, chọn `node:sqlite`)*
   - ADR-007: đóng gói plugin, shim ổn định, cách bật server (`SessionStart` là cách bật duy nhất, không dùng LaunchAgent), đường dẫn Node (dựa trên S8). *(xong 16/11/2026: `docs/adr/ADR-007-packaging.md`)*
   - Đã viết thêm theo quyết định của chủ dự án sau các spike: ADR-002 (cơ chế duyệt: hook `PermissionRequest`, `docs/adr/ADR-002-approval-mechanism.md`) và ADR-003 (kiểu hook: `sh` + `curl`, `docs/adr/ADR-003-hook-type.md`). ADR-001 (nguồn dữ liệu và bảng ánh xạ đã sửa, `docs/adr/ADR-001-data-sources.md`) cũng đã viết.
 - [ ] Buổi chốt go/no-go (1-2 giờ): ghi đạt hoặc không đạt cho từng spike, rồi chọn một trong ba hướng: **tiếp tục**, **đổi hướng** hoặc **cắt phạm vi**. Ghi kết quả vào ADR-008.
@@ -1171,7 +1171,7 @@ Các điểm dưới đây chưa được đối chiếu đầy đủ với tài
 
 **Đã sửa theo các quyết định:** sơ đồ kiến trúc (mục 3), bảng nguồn dữ liệu và ánh xạ (mục 4), ghép yêu cầu duyệt (5.1), ý 5 của 5.3, cơ chế duyệt (mục 6), tech stack (mục 8), cấu trúc repo (9.1), shim và nguồn pid (9.2), checklist lần đầu, trang chẩn đoán, panel duyệt và trạng thái đặc biệt (mục 10), checklist M2, tài liệu người dùng, ba hàng rủi ro.
 
-**ADR viết thêm cùng ngày:** ADR-001 (nguồn dữ liệu, bảng ánh xạ đã sửa; mục 4 nay chỉ tóm tắt), ADR-004 (event sourcing), ADR-005 (lưu trữ bằng `node:sqlite`, đề xuất chờ duyệt). Mục 5.1 thêm `task_notification` và `permission.kind`.
+**ADR viết thêm cùng ngày:** ADR-001 (nguồn dữ liệu, bảng ánh xạ đã sửa; mục 4 nay chỉ tóm tắt), ADR-004 (event sourcing), ADR-005 (lưu trữ bằng `node:sqlite`, giữ event log 30 ngày, raw 7 ngày, lịch sử 365 ngày; chủ dự án đã duyệt). Mục 5.1 thêm `task_notification` và `permission.kind`.
 
 **Kết quả spike làm đổi plan:** S9 cho thấy đồng hồ đơn điệu của Node vẫn chạy khi máy ngủ trên máy Apple Silicon, nên mục 5.4 đổi sang phát hiện wake bằng tick trễ.
 

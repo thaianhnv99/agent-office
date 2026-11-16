@@ -1,6 +1,7 @@
 # ADR-005: Lưu trữ
 
-- **Trạng thái:** Đề xuất, chờ chủ dự án duyệt (16/11/2026)
+- **Trạng thái:** Chấp nhận (16/11/2026)
+- **Người quyết định:** chủ dự án
 - **Liên quan:** plan v3.1 mục 5.3, 7, 8, M3.5; ADR-004 (event log), ADR-007 (đóng gói, thư mục dữ liệu)
 
 ## Bối cảnh
@@ -29,7 +30,7 @@ khoảng 470 byte, WAL, `synchronous = NORMAL`, mỗi sự kiện một `INSERT`
 **Khối lượng thực tế:** transcript 7 ngày gần nhất có tối đa khoảng 800 lần gọi tool và 1.465 message mỗi ngày,
 tức khoảng 5.000-6.000 sự kiện. Như vậy là khoảng 3 MB mỗi ngày, hay **90-100 MB cho 30 ngày**.
 
-## Quyết định (đề xuất)
+## Quyết định
 
 1. **Dùng `node:sqlite`** (có sẵn trong Node, `DatabaseSync`), không dùng `better-sqlite3`.
    - `better-sqlite3` là native addon: file `.node` gắn với từng nền tảng và từng ABI của Node.
