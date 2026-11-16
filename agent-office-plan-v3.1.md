@@ -127,7 +127,7 @@ Codex CLI / Cursor ────────────────────�
 | `claude agents --json` | Trạng thái chính thức: `status` (`busy`/`waiting`/`idle`), `waitingFor`, `pid`, `sessionId` | Research preview, chỉ hỗ trợ poll; có thể khởi động supervisor chạy nền; cần đo chi phí mỗi lần gọi |
 | Transcript JSONL | Chi tiết tool, dấu ngắt `[Request interrupted by user…`, token, `ai-title`, `system/away_summary` | Định dạng đổi theo phiên bản; có bản ghi không có trong tài liệu; token phải dedupe theo `message.id` (trên máy hiện tại, cộng thẳng ra gấp khoảng 2,2 lần) |
 | Statusline | `rate_limits.five_hour` / `seven_day` (`used_percentage`, `resets_at`), `process.pid`, `cost.total_cost_usd` | `rate_limits` chỉ có với gói Pro/Max/Ultra và chỉ sau response đầu tiên (đã kiểm ở S7); statusline chạy theo sự kiện, không định kỳ; người dùng thường đã có statusline riêng nên cần wrapper |
-| MCP server của plugin (channel) | Duyệt quyền; tín hiệu sống (stdin đóng nghĩa là session đã kết thúc, kể cả khi crash) | Channel đang là research preview; plugin tự viết cần cờ `--dangerously-load-development-channels` |
+| MCP server của plugin (channel) | Duyệt quyền; tín hiệu sống (stdin đóng nghĩa là tiến trình đã kết thúc, kể cả khi crash: S9 đo 8-9 ms với `kill -9`). S5: sống theo tiến trình `claude`, không theo `session_id`; `/clear` không bật lại server và `CLAUDE_CODE_SESSION_ID` của nó thành id cũ | Channel đang là research preview; plugin tự viết cần cờ `--dangerously-load-development-channels` |
 | OpenTelemetry (tuỳ chọn) | `claude_code.tool_decision` (accept/reject), `claude_code.api_request` | Mặc định 5 giây mới xuất một lần; để sau |
 
 Bảng ánh xạ sang sự kiện chuẩn hoá (đã đối chiếu bằng dữ liệu thật ở S1: đúng phần lớn, cần sửa 5 dòng, xem `docs/spikes/s1-events.md`; ADR-001 chốt bảng đã sửa):
@@ -792,7 +792,7 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
   - Xác nhận "bên nào trả lời trước thì thắng" khi dùng terminal VS Code.
   - Đánh giá mức phiền của cờ dev và hộp thoại xác nhận.
 - [x] **S4.** Spike hook `PermissionRequest` kiểu `http`: khi hook đang chờ thì hộp thoại terminal có hiện không. *(xong 16/11/2026: `docs/spikes/s4-permission-hook.md`)*
-- [ ] **S5.** MCP server của plugin:
+- [x] **S5.** MCP server của plugin: *(xong 16/11/2026: `docs/spikes/s5-plugin-mcp.md`)*
   - có sống đúng bằng vòng đời session không;
   - lấy `pid` cha và `session_id` bằng cách nào.
 - [x] **S6.** Đo overhead mỗi tool call với ba kiểu hook: command đồng bộ (Node), `async`, `http`. Kiểm tra hook `http` hoạt động thế nào khi server tắt. *(xong 16/11/2026: `docs/spikes/s6-hook-overhead.md`)*
