@@ -779,7 +779,7 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
   - thử plugin bằng `--plugin-dir` trong một session riêng.
 - [x] **S9.** Vòng đời session và sleep/wake. Thử thật trên máy: mở session, sleep, wake; kill terminal; resume. Ghi kết quả vào `docs/spikes/s9-lifecycle.md`. *(xong 16/11/2026)*
   - S1 đã trả lời một phần (`docs/spikes/s1-events.md`): `SessionStart` có chạy khi resume (`source: resume`); `ppid` của tiến trình hook là pid của `claude` (trùng `claude agents --json`); đóng terminal vẫn có `SessionEnd` (`reason: other`). S6 đã trả lời: hook khi server tắt không chặn agent (`http` báo lỗi trong 1-8 ms, command `async` không làm agent chờ); server treo thì `http` chặn tới hết timeout. Còn lại: kill hẳn tiến trình (`kill -9`), timer và đồng hồ đơn điệu lúc máy ngủ.
-- [ ] Đọc 2-3 dự án tương tự: pixel-agents, pixel-agent-desk, agents-observe. Ghi lại cách họ hiển thị trạng thái và thông báo.
+- [x] Đọc 2-3 dự án tương tự: pixel-agents, pixel-agent-desk, agents-observe. Ghi lại cách họ hiển thị trạng thái và thông báo. *(xong 16/11/2026: `docs/research/similar-projects.md`)*
 - [ ] Thiết kế D1: wireframe lo-fi cho màn hình chính, chế độ danh sách, panel duyệt và luồng duyệt (mục 10.11). (3-5 giờ)
 - [x] Viết ADR (2-3 giờ): *(xong 16/11/2026: ADR-001 đến ADR-005 và ADR-007 trong `docs/adr/`)*
   - ADR-004: event sourcing + reducer thuần, chạy ở cả server lẫn trình duyệt; *(xong 16/11/2026: `docs/adr/ADR-004-event-sourcing.md`)*
