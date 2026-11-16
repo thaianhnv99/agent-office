@@ -281,6 +281,11 @@ Người dùng hay sleep máy. Khi sleep, tiến trình `claude` và server ch�
      - câu hỏi có lựa chọn và duyệt kế hoạch **không** được relay;
      - theo tài liệu, với Pro/Max cờ dev là cách duy nhất, kể cả khi plugin nằm ở marketplace riêng; Team/Enterprise cần admin bật `channelsEnabled`.
 2. **Dự phòng: hook `PermissionRequest` kiểu `http`**, trả về `decision.behavior`. Chỉ dùng nếu M0 cho thấy hook trong lúc chờ không chặn hộp thoại terminal quá lâu (tài liệu chưa nói rõ điểm này).
+   - Kết quả S4 (`docs/spikes/s4-permission-hook.md`):
+     - hộp thoại terminal hiện ngay trong lúc hook chờ, và bên trả lời trước thắng;
+     - hook trả lời được cả câu hỏi có lựa chọn và duyệt kế hoạch, điều channel không làm được;
+     - không cần cờ dev.
+   - **Đề xuất (chờ ADR-002):** đưa hook lên làm cơ chế chính và đưa channel vào backlog.
 3. **Khi không ngồi ở máy:** dùng Remote Control của Claude Code, có tuỳ chọn đẩy thông báo khi cần hành động, thay vì mở dashboard ra LAN.
 
 **Mô hình đe doạ:** ai gửi được verdict thì người đó chạy được lệnh trên máy bạn.
@@ -780,7 +785,7 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
 - [x] **S3.** Spike channel: viết MCP server tối thiểu có permission relay. Kiểm tra thêm MCP server làm gì khi không kết nối được server của app. Chạy ở mức 2 hoặc 3, không cài vào cấu hình chính. *(xong 16/11/2026: `docs/spikes/s3-channel.md`)*
   - Xác nhận "bên nào trả lời trước thì thắng" khi dùng terminal VS Code.
   - Đánh giá mức phiền của cờ dev và hộp thoại xác nhận.
-- [ ] **S4.** Spike hook `PermissionRequest` kiểu `http`: khi hook đang chờ thì hộp thoại terminal có hiện không.
+- [x] **S4.** Spike hook `PermissionRequest` kiểu `http`: khi hook đang chờ thì hộp thoại terminal có hiện không. *(xong 16/11/2026: `docs/spikes/s4-permission-hook.md`)*
 - [ ] **S5.** MCP server của plugin:
   - có sống đúng bằng vòng đời session không;
   - lấy `pid` cha và `session_id` bằng cách nào.
