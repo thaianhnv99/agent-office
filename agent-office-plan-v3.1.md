@@ -130,27 +130,14 @@ Codex CLI / Cursor ────────────────────�
 | MCP server của plugin (channel) — **không dùng ở M1-M2 (ADR-002)**, chỉ khi làm "gửi prompt từ dashboard" (backlog) | Duyệt quyền; tín hiệu sống (stdin đóng nghĩa là tiến trình đã kết thúc, kể cả khi crash: S9 đo 8-9 ms với `kill -9`). S5: sống theo tiến trình `claude`, không theo `session_id`; `/clear` không bật lại server và `CLAUDE_CODE_SESSION_ID` của nó thành id cũ | Channel đang là research preview; plugin tự viết cần cờ `--dangerously-load-development-channels` |
 | OpenTelemetry (tuỳ chọn) | `claude_code.tool_decision` (accept/reject), `claude_code.api_request` | Mặc định 5 giây mới xuất một lần; để sau |
 
-Bảng ánh xạ sang sự kiện chuẩn hoá (đã đối chiếu bằng dữ liệu thật ở S1: đúng phần lớn, cần sửa 5 dòng, xem `docs/spikes/s1-events.md`; ADR-001 chốt bảng đã sửa):
+**Bảng ánh xạ sang sự kiện chuẩn hoá đã chốt ở ADR-001** (`docs/adr/ADR-001-data-sources.md`), là nguồn chuẩn; mục này chỉ tóm tắt. So với bảng viết trước M0, S1 sửa 5 điểm:
+- `UserPromptSubmit` có `prompt` bắt đầu bằng `<task-notification>` → `task_notification` (mới), không phải `prompt`;
+- `PermissionRequest` cũng bắn cho `AskUserQuestion` và `ExitPlanMode` → `permission_request` có `kind`: `tool`, `question`, `plan`;
+- `Notification` `permission_prompt` chỉ là tín hiệu phụ (đến sau khoảng 6 s, không phải lần nào cũng có);
+- `Notification` `idle_prompt` không còn là `waiting_input` (agent đã xong lượt; S9: còn bắn trễ khi máy ngủ);
+- từ chối, Esc và đóng terminal không có `Stop`/`PostToolUse`: dựa vào dấu ngắt trong transcript, `official_status` và `liveness`.
 
-| Hook / nguồn | → `type` |
-|---|---|
-| `SessionStart` (`source`: startup / resume / clear / compact / fork) | `session_start` |
-| `UserPromptSubmit` | `prompt` |
-| `PreToolUse` | `tool_start` (riêng `AskUserQuestion`, `ExitPlanMode` → `waiting_input`) |
-| `PostToolUse` / `PostToolUseFailure` (`error`, `is_interrupt`) | `tool_end` |
-| `PostToolBatch` | `tools_batch_end` |
-| `PermissionRequest`, `Notification` loại `permission_prompt`, channel `permission_request` | `permission_request` |
-| Quyết định dashboard trả qua hook `PermissionRequest`, kết nối hook bị đóng (bấm No trong terminal), hoặc suy ra từ: tool chạy tiếp, `Stop`, bị ngắt, `status: busy` (ADR-002) | `permission_resolved` |
-| `Notification` loại `idle_prompt`, `elicitation_dialog` | `waiting_input` |
-| `Stop` (`background_tasks`, `last_assistant_message`) | `stop` |
-| `StopFailure` (`error`: `rate_limit`, `overloaded`, `billing_error`…) | `stop_failure` |
-| `PreCompact` / `PostCompact` | `compact_start` / `compact_end` |
-| `SubagentStart` / `SubagentStop` (`agent_transcript_path`) | `subagent_start` / `subagent_stop` |
-| `SessionEnd` (`reason`) | `session_end` |
-| Transcript: dấu ngắt | `interrupted` |
-| Transcript: `usage` (dedupe theo `message.id`) | `usage` |
-| Transcript: `ai-title` | `title` |
-| `claude agents --json`, statusline, channel | `official_status`, `quota`, `liveness` |
+Nguồn liveness: pid lấy từ `ppid` của hook, kiểm tra bằng `kill -0`, vì `kill -9` không có `SessionEnd` (S9). Còn chưa xác nhận: `source: fork`, `StopFailure`, `elicitation_dialog`.
 
 ## 5. Mô hình dữ liệu
 
@@ -164,7 +151,7 @@ type EventType =
   | 'session_start' | 'session_end' | 'prompt'
   | 'tool_start' | 'tool_end' | 'tools_batch_end'
   | 'permission_request' | 'permission_resolved' | 'waiting_input'
-  | 'stop' | 'stop_failure' | 'interrupted'
+  | 'stop' | 'stop_failure' | 'interrupted' | 'task_notification'
   | 'compact_start' | 'compact_end' | 'subagent_start' | 'subagent_stop'
   | 'usage' | 'title' | 'official_status' | 'quota' | 'liveness';
 
@@ -182,7 +169,7 @@ type NormalizedEvent = {
   cwd?: string;
   tool?: { name: string; useId?: string; target?: string;
            outcome?: 'ok' | 'error' | 'interrupted' | 'denied' };
-  permission?: { requestId: string; toolName: string; inputPreview: string };
+  permission?: { requestId: string; kind: 'tool' | 'question' | 'plan'; toolName: string; input: unknown }; // ADR-001, ADR-002
   usage?: { messageId: string; model: string; input: number; output: number;
             cacheRead: number; cacheWrite5m: number; cacheWrite1h: number };
   quota?: { fiveHourPct?: number; fiveHourResetsAt?: number;
@@ -231,7 +218,7 @@ Trạng thái hiển thị được **suy ra**, không lưu. Thứ tự ưu tiê
 - Sự kiện đến sai thứ tự thì ghép theo `tool_use_id`. Bỏ qua `tool_start` đến sau `tool_end` của cùng id.
 - `done` chuyển sang `idle` khi bạn đã xem (mở panel hoặc gửi prompt mới).
 - Không có quy tắc offline theo thời gian; chỉ dựa vào tiến trình.
-- Bàn gắn với tiến trình (`pid`) nếu biết pid. `/clear` đổi `session_id` nhưng vẫn giữ bàn. *(Cần xác nhận ở M0.)*
+- Bàn gắn với tiến trình (`pid`) nếu biết pid. `/clear` đổi `session_id` nhưng vẫn giữ bàn (đã xác nhận ở S1, S5).
 
 **Test:**
 - reducer thuần + test dạng bảng;
@@ -311,7 +298,7 @@ Người dùng hay sleep máy. Khi sleep, tiến trình `claude` và server ch�
 | Monorepo | pnpm workspaces, gọi qua `corepack pnpm …` (không chạy `corepack enable`); `packageManager` trong `package.json` ghim pnpm; `.nvmrc` và `engines.node` ghim Node 22 | Gồm `shared`, `server`, `web`, `plugin`, `simulator`; không sửa môi trường Node dùng chung (mục 9.2) |
 | Server | Node 22 + TypeScript + Hono | Nhẹ, có sẵn `streamSSE` |
 | Realtime | SSE cho luồng trạng thái + POST cho lệnh duyệt | Tự kết nối lại kèm `Last-Event-ID` |
-| Lưu trữ | SQLite qua `node:sqlite` hoặc `better-sqlite3` (chốt ở M0) | Event log gốc, snapshot, lịch sử |
+| Lưu trữ | SQLite qua `node:sqlite` có sẵn trong Node (ADR-005, đề xuất chờ duyệt); không dùng `better-sqlite3` vì là native addon, xung đột với ADR-007 | Event log gốc, snapshot, lịch sử |
 | Validate | Zod | Payload từ hook, statusline, transcript |
 | Đọc transcript | `fs.watch` + đọc tăng dần theo `transcript_path` | Không cần glob cả thư mục (chokidar v4+ đã bỏ glob) |
 | Channel | Không dùng ở M1-M2 (ADR-002). Khi làm "gửi prompt từ dashboard" (backlog) mới thêm `@modelcontextprotocol/sdk` | Duyệt quyền chuyển sang hook `PermissionRequest` |
@@ -795,10 +782,10 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
 - [ ] Đọc 2-3 dự án tương tự: pixel-agents, pixel-agent-desk, agents-observe. Ghi lại cách họ hiển thị trạng thái và thông báo.
 - [ ] Thiết kế D1: wireframe lo-fi cho màn hình chính, chế độ danh sách, panel duyệt và luồng duyệt (mục 10.11). (3-5 giờ)
 - [ ] Viết ADR (2-3 giờ):
-  - ADR-004: event sourcing + reducer thuần, chạy ở cả server lẫn trình duyệt;
-  - ADR-005: lưu trữ (`node:sqlite` hay `better-sqlite3`, cấu trúc event log, `schema_version`);
+  - ADR-004: event sourcing + reducer thuần, chạy ở cả server lẫn trình duyệt; *(xong 16/11/2026: `docs/adr/ADR-004-event-sourcing.md`)*
+  - ADR-005: lưu trữ (`node:sqlite` hay `better-sqlite3`, cấu trúc event log, `schema_version`); *(viết 16/11/2026: `docs/adr/ADR-005-storage.md`, đề xuất `node:sqlite`, chờ duyệt)*
   - ADR-007: đóng gói plugin, shim ổn định, cách bật server (`SessionStart` là cách bật duy nhất, không dùng LaunchAgent), đường dẫn Node (dựa trên S8). *(xong 16/11/2026: `docs/adr/ADR-007-packaging.md`)*
-  - Đã viết thêm theo quyết định của chủ dự án sau các spike: ADR-002 (cơ chế duyệt: hook `PermissionRequest`, `docs/adr/ADR-002-approval-mechanism.md`) và ADR-003 (kiểu hook: `sh` + `curl`, `docs/adr/ADR-003-hook-type.md`). Còn ADR-001, ADR-004, ADR-005.
+  - Đã viết thêm theo quyết định của chủ dự án sau các spike: ADR-002 (cơ chế duyệt: hook `PermissionRequest`, `docs/adr/ADR-002-approval-mechanism.md`) và ADR-003 (kiểu hook: `sh` + `curl`, `docs/adr/ADR-003-hook-type.md`). ADR-001 (nguồn dữ liệu và bảng ánh xạ đã sửa, `docs/adr/ADR-001-data-sources.md`) cũng đã viết.
 - [ ] Buổi chốt go/no-go (1-2 giờ): ghi đạt hoặc không đạt cho từng spike, rồi chọn một trong ba hướng: **tiếp tục**, **đổi hướng** hoặc **cắt phạm vi**. Ghi kết quả vào ADR-008.
 
 **Xong khi có:**
@@ -1183,6 +1170,8 @@ Các điểm dưới đây chưa được đối chiếu đầy đủ với tài
 4. M1-M2 không có MCP server; liveness dùng pid lấy từ `ppid` của hook, kiểm tra bằng `kill -0`, đối chiếu bằng `claude agents --json` (S5, S9).
 
 **Đã sửa theo các quyết định:** sơ đồ kiến trúc (mục 3), bảng nguồn dữ liệu và ánh xạ (mục 4), ghép yêu cầu duyệt (5.1), ý 5 của 5.3, cơ chế duyệt (mục 6), tech stack (mục 8), cấu trúc repo (9.1), shim và nguồn pid (9.2), checklist lần đầu, trang chẩn đoán, panel duyệt và trạng thái đặc biệt (mục 10), checklist M2, tài liệu người dùng, ba hàng rủi ro.
+
+**ADR viết thêm cùng ngày:** ADR-001 (nguồn dữ liệu, bảng ánh xạ đã sửa; mục 4 nay chỉ tóm tắt), ADR-004 (event sourcing), ADR-005 (lưu trữ bằng `node:sqlite`, đề xuất chờ duyệt). Mục 5.1 thêm `task_notification` và `permission.kind`.
 
 **Kết quả spike làm đổi plan:** S9 cho thấy đồng hồ đơn điệu của Node vẫn chạy khi máy ngủ trên máy Apple Silicon, nên mục 5.4 đổi sang phát hiện wake bằng tick trễ.
 
