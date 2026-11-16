@@ -245,7 +245,7 @@ Khi server khởi động (sau crash, sau khi cập nhật, hoặc khi máy kh�
 2. Lấy danh sách session đang sống từ `claude agents --json`, cộng thêm quét tiến trình nếu chọn ở câu hỏi 5.
 3. Với mỗi session còn sống: đọc tiếp transcript từ offset đã lưu để dựng lại tool đang chạy, dấu ngắt, tiêu đề và token.
 4. Sự kiện hook phát ra trong lúc server tắt sẽ bị mất. Các session đó hiện trạng thái "chưa chắc chắn" (viền đứt nét, mục 10.6) cho tới khi có sự kiện hook mới hoặc trạng thái chính thức.
-5. Yêu cầu duyệt phát ra trong lúc server tắt chỉ duyệt được trong terminal. MCP server của channel xử lý thế nào khi không kết nối được server (giữ lại hay bỏ): cần xác nhận ở M0 (spike S3).
+5. Yêu cầu duyệt phát ra trong lúc server tắt chỉ duyệt được trong terminal. S3 cho thấy Claude Code không đặt thời hạn chờ channel và terminal vẫn duyệt bình thường. Đề xuất: MCP server giữ yêu cầu đang chờ trong bộ nhớ và gửi lại khi kết nối lại; dashboard xoá yêu cầu khi hook cho biết đã xử lý (verdict muộn bị bỏ nên an toàn). Chốt ở ADR-002.
 6. Session đã kết thúc trong lúc server tắt: chuyển sang offline dựa trên tiến trình.
 
 > Máy sleep rồi wake **không** khởi động lại tiến trình server: tiến trình chỉ bị tạm dừng rồi chạy tiếp. Trường hợp đó xử lý theo mục 5.4, không theo 5.3.
@@ -275,6 +275,11 @@ Người dùng hay sleep máy. Khi sleep, tiến trình `claude` và server ch�
    - Dashboard trả lời bằng `notifications/claude/channel/permission` với `request_id` và `behavior: 'allow' | 'deny'`.
    - **Hộp thoại trong terminal vẫn mở song song; bên nào trả lời trước thì thắng.**
    - Hạn chế: plugin tự viết phải bật bằng `--dangerously-load-development-channels plugin:agent-office@<marketplace>` ở mỗi session, kèm một hộp thoại xác nhận. Có thể dùng alias shell. Giao thức có thể còn thay đổi.
+   - Kết quả S3 (`docs/spikes/s3-channel.md`):
+     - relay chạy được với cả `allow` lẫn `deny`;
+     - "bên trả lời trước thắng" đúng trong terminal VS Code; verdict đến muộn bị bỏ âm thầm và channel không được báo;
+     - câu hỏi có lựa chọn và duyệt kế hoạch **không** được relay;
+     - theo tài liệu, với Pro/Max cờ dev là cách duy nhất, kể cả khi plugin nằm ở marketplace riêng; Team/Enterprise cần admin bật `channelsEnabled`.
 2. **Dự phòng: hook `PermissionRequest` kiểu `http`**, trả về `decision.behavior`. Chỉ dùng nếu M0 cho thấy hook trong lúc chờ không chặn hộp thoại terminal quá lâu (tài liệu chưa nói rõ điểm này).
 3. **Khi không ngồi ở máy:** dùng Remote Control của Claude Code, có tuỳ chọn đẩy thông báo khi cần hành động, thay vì mở dashboard ra LAN.
 
@@ -772,7 +777,7 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
   - có những trường nào;
   - mỗi lần gọi tốn bao nhiêu thời gian/CPU;
   - lệnh có tự khởi động supervisor không. Nếu có, thì khi dev reconciler mặc định tắt và chỉ bật lúc test tích hợp.
-- [ ] **S3.** Spike channel: viết MCP server tối thiểu có permission relay. Kiểm tra thêm MCP server làm gì khi không kết nối được server của app. Chạy ở mức 2 hoặc 3, không cài vào cấu hình chính.
+- [x] **S3.** Spike channel: viết MCP server tối thiểu có permission relay. Kiểm tra thêm MCP server làm gì khi không kết nối được server của app. Chạy ở mức 2 hoặc 3, không cài vào cấu hình chính. *(xong 16/11/2026: `docs/spikes/s3-channel.md`)*
   - Xác nhận "bên nào trả lời trước thì thắng" khi dùng terminal VS Code.
   - Đánh giá mức phiền của cờ dev và hộp thoại xác nhận.
 - [ ] **S4.** Spike hook `PermissionRequest` kiểu `http`: khi hook đang chờ thì hộp thoại terminal có hiện không.
@@ -1123,8 +1128,8 @@ Các điểm dưới đây chưa được đối chiếu đầy đủ với tài
 | Hook nạp qua `--settings` có được gộp với hook khác không | Đã kiểm ở S0 (`docs/spikes/s0-isolation.md`) |
 | Statusline đặt ở cấp dự án được không; session sandbox có nạp `CLAUDE.md` ở thư mục cha không | Đã kiểm ở S0 (`docs/spikes/s0-isolation.md`) |
 | `claude agents --json` có khởi động supervisor không | Đã kiểm ở S2: không (`docs/spikes/s2-agents-json.md`) |
-| MCP server của channel làm gì khi server của app tắt | S3 |
-| Cách ghép yêu cầu từ `PermissionRequest` với yêu cầu từ channel | S1 (phía hook đã rõ: ghép với `PreToolUse` theo `tool_name` + `tool_input`), S3 |
+| MCP server của channel làm gì khi server của app tắt | Đã kiểm ở S3: channel im lặng không gây hại, terminal vẫn duyệt được (`docs/spikes/s3-channel.md`) |
+| Cách ghép yêu cầu từ `PermissionRequest` với yêu cầu từ channel | Đã kiểm ở S1 và S3: ghép theo `session_id` (MCP server có `CLAUDE_CODE_SESSION_ID`), `tool_name`, `input_preview` parse ra đúng `tool_input`, thời gian cách nhau khoảng 100 ms. Còn input dài bị cắt: M2 |
 | Shim và đường dẫn Node có chứa số phiên bản | S8 |
 | Gói npm `@anthropic-ai/claude-code` có phát hành cùng nhịp với bản native không | M1 |
 | Corepack không còn đi kèm từ Node 25 | Khi nâng Node |
