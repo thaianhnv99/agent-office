@@ -779,14 +779,14 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
 - [ ] **S5.** MCP server của plugin:
   - có sống đúng bằng vòng đời session không;
   - lấy `pid` cha và `session_id` bằng cách nào.
-- [ ] **S6.** Đo overhead mỗi tool call với ba kiểu hook: command đồng bộ (Node), `async`, `http`. Kiểm tra hook `http` hoạt động thế nào khi server tắt.
+- [x] **S6.** Đo overhead mỗi tool call với ba kiểu hook: command đồng bộ (Node), `async`, `http`. Kiểm tra hook `http` hoạt động thế nào khi server tắt. *(xong 16/11/2026: `docs/spikes/s6-hook-overhead.md`)*
 - [ ] **S7.** Statusline wrapper: có nhận được `rate_limits` và `process.pid` không.
 - [ ] **S8.** Đóng gói plugin và đường dẫn server:
   - plugin có cần phụ thuộc lúc chạy không, có bundle được thành file JS không;
   - `${CLAUDE_PLUGIN_ROOT}` đổi mỗi khi plugin cập nhật, nên hook phải gọi qua shim ổn định nằm ngoài thư mục plugin (mục 9.2). Kiểm tra cách xử lý khi đường dẫn Node có chứa số phiên bản (máy đang dùng nvm);
   - thử plugin bằng `--plugin-dir` trong một session riêng.
 - [ ] **S9.** Vòng đời session và sleep/wake. Thử thật trên máy: mở session, sleep, wake; kill terminal; resume. Ghi kết quả vào `docs/spikes/s9-lifecycle.md`.
-  - S1 đã trả lời một phần (`docs/spikes/s1-events.md`): `SessionStart` có chạy khi resume (`source: resume`); `ppid` của tiến trình hook là pid của `claude` (trùng `claude agents --json`); đóng terminal vẫn có `SessionEnd` (`reason: other`). Còn lại: kill hẳn tiến trình (`kill -9`), timer và đồng hồ đơn điệu lúc máy ngủ, hook khi server tắt có chặn agent không.
+  - S1 đã trả lời một phần (`docs/spikes/s1-events.md`): `SessionStart` có chạy khi resume (`source: resume`); `ppid` của tiến trình hook là pid của `claude` (trùng `claude agents --json`); đóng terminal vẫn có `SessionEnd` (`reason: other`). S6 đã trả lời: hook khi server tắt không chặn agent (`http` báo lỗi trong 1-8 ms, command `async` không làm agent chờ); server treo thì `http` chặn tới hết timeout. Còn lại: kill hẳn tiến trình (`kill -9`), timer và đồng hồ đơn điệu lúc máy ngủ.
 - [ ] Đọc 2-3 dự án tương tự: pixel-agents, pixel-agent-desk, agents-observe. Ghi lại cách họ hiển thị trạng thái và thông báo.
 - [ ] Thiết kế D1: wireframe lo-fi cho màn hình chính, chế độ danh sách, panel duyệt và luồng duyệt (mục 10.11). (3-5 giờ)
 - [ ] Viết ADR (2-3 giờ):
@@ -1131,7 +1131,7 @@ Các điểm dưới đây chưa được đối chiếu đầy đủ với tài
 | Các ngưỡng do AI đề xuất: 30% để cắt phạm vi; ân hạn 5 phút trước khi tự tắt server (câu hỏi 18); chu kỳ kiểm tra tiến trình 30-60 giây; ngưỡng phát hiện nhảy thời gian (hơn 3 lần chu kỳ); bật lười: cách nhau 30 giây, giãn dần tới 5 phút, tối đa 5 lần; 15 phút cài đặt; soak test: RSS trung vị không vượt baseline quá 20%; phát hiện phiên bản mới trong 24 giờ và cập nhật `compat.json` trong 7 ngày | Chủ dự án duyệt; hiệu chỉnh sau S9 và soak test |
 | `SessionStart` có chạy khi resume; payload có pid; session crash/kill có `SessionEnd` không | S9 (S1 đã trả lời một phần: có khi resume; `ppid` của hook là pid; đóng terminal có `SessionEnd`; còn `kill -9`) |
 | Đồng hồ đơn điệu (`process.hrtime`/`performance.now`) và timer của Node có dừng khi máy ngủ trên macOS không | S9 |
-| Hook gọi khi server tắt hoặc đang bật lại có chặn agent không | S9 |
+| Hook gọi khi server tắt hoặc đang bật lại có chặn agent không | Đã kiểm ở S6 (khi server tắt): không chặn; server treo thì hook `http` chặn tới hết timeout (`docs/spikes/s6-hook-overhead.md`). Phần "đang bật lại": S9 |
 
 ## Tài liệu tham khảo
 
