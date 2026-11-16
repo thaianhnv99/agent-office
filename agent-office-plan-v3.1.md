@@ -84,9 +84,9 @@
 
 ```
 Claude Code session (terminal VS Code)
-  ├─ hooks (async hoặc http) ───────────► POST /ingest/hook
+  ├─ hooks (sh + curl, async) ──────────► POST /ingest/hook      (ADR-003)
+  ├─ hook PermissionRequest (đồng bộ) ◄─► POST /approvals/wait   (duyệt quyền, ADR-002)
   ├─ statusline wrapper ────────────────► POST /ingest/status    (quota, pid)
-  ├─ MCP server của plugin (channel) ◄──► /channel               (duyệt quyền, liveness)
   └─ transcript JSONL ◄─────────────────── tailer (theo transcript_path)
 claude agents --json ◄──────────────────── reconciler (poll thích ứng)
 Codex CLI / Cursor ─────────────────────► adapter riêng (M5)
@@ -127,7 +127,7 @@ Codex CLI / Cursor ────────────────────�
 | `claude agents --json` | Trạng thái chính thức: `status` (`busy`/`waiting`/`idle`), `waitingFor`, `pid`, `sessionId` | Research preview, chỉ hỗ trợ poll; có thể khởi động supervisor chạy nền; cần đo chi phí mỗi lần gọi |
 | Transcript JSONL | Chi tiết tool, dấu ngắt `[Request interrupted by user…`, token, `ai-title`, `system/away_summary` | Định dạng đổi theo phiên bản; có bản ghi không có trong tài liệu; token phải dedupe theo `message.id` (trên máy hiện tại, cộng thẳng ra gấp khoảng 2,2 lần) |
 | Statusline | `rate_limits.five_hour` / `seven_day` (`used_percentage`, `resets_at`), `process.pid`, `cost.total_cost_usd` | `rate_limits` chỉ có với gói Pro/Max/Ultra và chỉ sau response đầu tiên (đã kiểm ở S7); statusline chạy theo sự kiện, không định kỳ; người dùng thường đã có statusline riêng nên cần wrapper |
-| MCP server của plugin (channel) | Duyệt quyền; tín hiệu sống (stdin đóng nghĩa là tiến trình đã kết thúc, kể cả khi crash: S9 đo 8-9 ms với `kill -9`). S5: sống theo tiến trình `claude`, không theo `session_id`; `/clear` không bật lại server và `CLAUDE_CODE_SESSION_ID` của nó thành id cũ | Channel đang là research preview; plugin tự viết cần cờ `--dangerously-load-development-channels` |
+| MCP server của plugin (channel) — **không dùng ở M1-M2 (ADR-002)**, chỉ khi làm "gửi prompt từ dashboard" (backlog) | Duyệt quyền; tín hiệu sống (stdin đóng nghĩa là tiến trình đã kết thúc, kể cả khi crash: S9 đo 8-9 ms với `kill -9`). S5: sống theo tiến trình `claude`, không theo `session_id`; `/clear` không bật lại server và `CLAUDE_CODE_SESSION_ID` của nó thành id cũ | Channel đang là research preview; plugin tự viết cần cờ `--dangerously-load-development-channels` |
 | OpenTelemetry (tuỳ chọn) | `claude_code.tool_decision` (accept/reject), `claude_code.api_request` | Mặc định 5 giây mới xuất một lần; để sau |
 
 Bảng ánh xạ sang sự kiện chuẩn hoá (đã đối chiếu bằng dữ liệu thật ở S1: đúng phần lớn, cần sửa 5 dòng, xem `docs/spikes/s1-events.md`; ADR-001 chốt bảng đã sửa):
@@ -140,7 +140,7 @@ Bảng ánh xạ sang sự kiện chuẩn hoá (đã đối chiếu bằng dữ 
 | `PostToolUse` / `PostToolUseFailure` (`error`, `is_interrupt`) | `tool_end` |
 | `PostToolBatch` | `tools_batch_end` |
 | `PermissionRequest`, `Notification` loại `permission_prompt`, channel `permission_request` | `permission_request` |
-| Verdict qua channel, hoặc suy ra từ: tool chạy tiếp, `Stop`, bị ngắt, `status: busy` | `permission_resolved` |
+| Quyết định dashboard trả qua hook `PermissionRequest`, kết nối hook bị đóng (bấm No trong terminal), hoặc suy ra từ: tool chạy tiếp, `Stop`, bị ngắt, `status: busy` (ADR-002) | `permission_resolved` |
 | `Notification` loại `idle_prompt`, `elicitation_dialog` | `waiting_input` |
 | `Stop` (`background_tasks`, `last_assistant_message`) | `stop` |
 | `StopFailure` (`error`: `rate_limit`, `overloaded`, `billing_error`…) | `stop_failure` |
@@ -201,7 +201,7 @@ type NormalizedEvent = {
   - channel: `request_id`;
   - nguồn không có khoá tự nhiên: hash nội dung + `ts`.
 - `correlationKey` dùng để **ghép giữa các nguồn**: `tool_use_id` cho tool, `message.id` cho token, `request_id` cho yêu cầu duyệt. Reducer chỉ áp dụng mỗi sự việc một lần; nguồn đến sau chỉ bổ sung thông tin.
-- Cách ghép yêu cầu duyệt từ hook `PermissionRequest` (không có `tool_use_id`) với channel: cần xác nhận ở M0.
+- Yêu cầu duyệt chỉ đến từ hook `PermissionRequest` (ADR-002), nên không cần ghép với channel. Khoá của yêu cầu do server cấp khi hook gọi tới; ghép với `PreToolUse` theo `session_id` + `tool_name` + `tool_input` (S1).
 
 ### 5.2 Session và trạng thái hiển thị
 
@@ -245,7 +245,7 @@ Khi server khởi động (sau crash, sau khi cập nhật, hoặc khi máy kh�
 2. Lấy danh sách session đang sống từ `claude agents --json`, cộng thêm quét tiến trình nếu chọn ở câu hỏi 5.
 3. Với mỗi session còn sống: đọc tiếp transcript từ offset đã lưu để dựng lại tool đang chạy, dấu ngắt, tiêu đề và token.
 4. Sự kiện hook phát ra trong lúc server tắt sẽ bị mất. Các session đó hiện trạng thái "chưa chắc chắn" (viền đứt nét, mục 10.6) cho tới khi có sự kiện hook mới hoặc trạng thái chính thức.
-5. Yêu cầu duyệt phát ra trong lúc server tắt chỉ duyệt được trong terminal. S3 cho thấy Claude Code không đặt thời hạn chờ channel và terminal vẫn duyệt bình thường. Đề xuất: MCP server giữ yêu cầu đang chờ trong bộ nhớ và gửi lại khi kết nối lại; dashboard xoá yêu cầu khi hook cho biết đã xử lý (verdict muộn bị bỏ nên an toàn). Chốt ở ADR-002.
+5. Yêu cầu duyệt phát ra trong lúc server tắt chỉ duyệt được trong terminal: hook `PermissionRequest` không kết nối được thì trả "không quyết định" và hộp thoại terminal xử lý bình thường (S4, ADR-002). Server không giữ hay gửi lại yêu cầu cũ.
 6. Session đã kết thúc trong lúc server tắt: chuyển sang offline dựa trên tiến trình.
 
 > Máy sleep rồi wake **không** khởi động lại tiến trình server: tiến trình chỉ bị tạm dừng rồi chạy tiếp. Trường hợp đó xử lý theo mục 5.4, không theo 5.3.
@@ -267,25 +267,15 @@ Người dùng hay sleep máy. Khi sleep, tiến trình `claude` và server ch�
 
 ## 6. Duyệt quyền từ dashboard
 
-**Cơ chế, theo thứ tự ưu tiên:**
+**Cơ chế (chốt ở ADR-002, 16/11/2026):**
 
-1. **Channel permission relay** (chính thức, đang research preview).
-   - MCP server của plugin khai báo `capabilities.experimental['claude/channel']` và `capabilities.experimental['claude/channel/permission']`.
-   - Claude Code gửi `notifications/claude/channel/permission_request` với `request_id`, `tool_name`, `description`, `input_preview`.
-   - Dashboard trả lời bằng `notifications/claude/channel/permission` với `request_id` và `behavior: 'allow' | 'deny'`.
-   - **Hộp thoại trong terminal vẫn mở song song; bên nào trả lời trước thì thắng.**
-   - Hạn chế: plugin tự viết phải bật bằng `--dangerously-load-development-channels plugin:agent-office@<marketplace>` ở mỗi session, kèm một hộp thoại xác nhận. Có thể dùng alias shell. Giao thức có thể còn thay đổi.
-   - Kết quả S3 (`docs/spikes/s3-channel.md`):
-     - relay chạy được với cả `allow` lẫn `deny`;
-     - "bên trả lời trước thắng" đúng trong terminal VS Code; verdict đến muộn bị bỏ âm thầm và channel không được báo;
-     - câu hỏi có lựa chọn và duyệt kế hoạch **không** được relay;
-     - theo tài liệu, với Pro/Max cờ dev là cách duy nhất, kể cả khi plugin nằm ở marketplace riêng; Team/Enterprise cần admin bật `channelsEnabled`.
-2. **Dự phòng: hook `PermissionRequest` kiểu `http`**, trả về `decision.behavior`. Chỉ dùng nếu M0 cho thấy hook trong lúc chờ không chặn hộp thoại terminal quá lâu (tài liệu chưa nói rõ điểm này).
-   - Kết quả S4 (`docs/spikes/s4-permission-hook.md`):
-     - hộp thoại terminal hiện ngay trong lúc hook chờ, và bên trả lời trước thắng;
-     - hook trả lời được cả câu hỏi có lựa chọn và duyệt kế hoạch, điều channel không làm được;
-     - không cần cờ dev.
-   - **Đề xuất (chờ ADR-002):** đưa hook lên làm cơ chế chính và đưa channel vào backlog.
+1. **Hook `PermissionRequest`** (kiểu và cách gọi ở ADR-003: hook command đồng bộ viết bằng `sh` + `curl`).
+   - Hook gửi yêu cầu tới server và chờ trong cửa sổ duyệt; dashboard trả `allow`/`deny`, hoặc `allow` kèm `updatedInput` cho `AskUserQuestion` (đáp án) và `ExitPlanMode`.
+   - **Hộp thoại trong terminal hiện ngay và vẫn dùng được; bên nào trả lời trước thì thắng** (S4). Bấm No trong terminal làm Claude Code đóng kết nối hook ngay; bấm Yes thì hook chạy tiếp tới hết hạn, dashboard nhận biết qua `PostToolUse`/`Stop`.
+   - Hết cửa sổ duyệt, server tắt hay treo, công tắc tắt đang bật, hoặc phiên không tương tác (`-p`): hook trả "không quyết định", hộp thoại terminal xử lý như bình thường.
+   - Duyệt kế hoạch bằng hook chuyển phiên sang `acceptEdits` (S4); panel duyệt phải nói rõ, M2 quyết định có dùng `setMode` hay không.
+   - Kết quả thử: S4 (`docs/spikes/s4-permission-hook.md`).
+2. **Channel permission relay: bỏ khỏi M1-M2, đưa vào backlog** cùng "gửi prompt từ dashboard". Lý do (S3, `docs/spikes/s3-channel.md`): cần cờ `--dangerously-load-development-channels` ở mọi phiên với Pro/Max, Team/Enterprise cần admin bật, không relay câu hỏi có lựa chọn và duyệt kế hoạch, không chạy ở `-p`, và cần một MCP server khoảng 50 MB cho mỗi phiên (S5). Plugin của M1-M2 không có MCP server.
 3. **Khi không ngồi ở máy:** dùng Remote Control của Claude Code, có tuỳ chọn đẩy thông báo khi cần hành động, thay vì mở dashboard ra LAN.
 
 **Mô hình đe doạ:** ai gửi được verdict thì người đó chạy được lệnh trên máy bạn.
@@ -298,7 +288,7 @@ Người dùng hay sleep máy. Khi sleep, tiến trình `claude` và server ch�
 - Plugin nói chuyện với server bằng token riêng, lưu trong `${CLAUDE_PLUGIN_DATA}` với quyền 0600. Khi dev, token nằm trong `AGENT_OFFICE_HOME` (mục 9.2).
 - Verdict gắn với `request_id` và một nonce của server, chỉ dùng được một lần, hết hạn sau vài phút. Không có nút "duyệt tất cả".
 - Chỉ allow/deny cho từng lần. Dashboard không ghi rule vĩnh viễn (`updatedPermissions`).
-- Coi `input_preview` là dữ liệu không tin cậy: escape, không render markdown hay HTML, hiện đầy đủ lệnh.
+- Coi `tool_input` của hook là dữ liệu không tin cậy: escape, không render markdown hay HTML, hiện đầy đủ lệnh.
 - Lệnh nguy hiểm phải xác nhận lần hai: `rm -rf`, `git push --force`, `curl … | sh`, ghi file ra ngoài thư mục dự án.
 - Ghi nhật ký kiểm toán cho mọi quyết định. Có công tắc tắt nhanh; mặc định tắt khi mới cài.
 - Viết `docs/threat-model.md`. Đây cũng là tài liệu tốt để trình bày khi phỏng vấn.
@@ -322,15 +312,15 @@ Người dùng hay sleep máy. Khi sleep, tiến trình `claude` và server ch�
 | Server | Node 22 + TypeScript + Hono | Nhẹ, có sẵn `streamSSE` |
 | Realtime | SSE cho luồng trạng thái + POST cho lệnh duyệt | Tự kết nối lại kèm `Last-Event-ID` |
 | Lưu trữ | SQLite qua `node:sqlite` hoặc `better-sqlite3` (chốt ở M0) | Event log gốc, snapshot, lịch sử |
-| Validate | Zod | Payload từ hook, statusline, channel, transcript |
+| Validate | Zod | Payload từ hook, statusline, transcript |
 | Đọc transcript | `fs.watch` + đọc tăng dần theo `transcript_path` | Không cần glob cả thư mục (chokidar v4+ đã bỏ glob) |
-| Channel | `@modelcontextprotocol/sdk` (stdio) | Cho permission relay |
+| Channel | Không dùng ở M1-M2 (ADR-002). Khi làm "gửi prompt từ dashboard" (backlog) mới thêm `@modelcontextprotocol/sdk` | Duyệt quyền chuyển sang hook `PermissionRequest` |
 | Web | React + Vite + TypeScript; Zustand nhận snapshot từ server | Dùng chung reducer, không chạy hai máy trạng thái |
 | Đồ hoạ | PixiJS v8 + bản đồ Tiled + sprite sheet xuất từ Aseprite | Pixel art 60 fps, tách phần render khỏi logic |
 | Test | Vitest (reducer, parser, golden replay, property test); Playwright (E2E với simulator) | |
 | Thông báo | Notification API + badge trên tiêu đề tab | Không cần thư viện native |
 | Khởi động | Khi dev: `pnpm dev:up`, tắt bằng Ctrl+C hoặc `pnpm dev:down`. Bản phát hành: hook `SessionStart` tự bật server qua shim ổn định (mục 9.2, ADR-007); tắt tay bằng `agent-office stop` (ghi cờ tắt có chủ đích). **Không dùng LaunchAgent.** Server tự tắt khi hết session theo quy tắc ở mục 9.2 | Không đụng hệ thống; không có dịch vụ nào chạy lúc đăng nhập |
-| Đóng gói | Bundle hook, MCP server và wrapper thành file JS không cần cài phụ thuộc lúc chạy (ví dụ dùng esbuild); chốt ở ADR-007 | Cài nhanh, giảm rủi ro chuỗi cung ứng |
+| Đóng gói | Hook là script `sh` + `curl`, không cần Node (ADR-003). Server và CLI `agent-office` bundle bằng esbuild (minify) thành file JS, không ship `node_modules` (ADR-007) | Cài nhanh, giảm rủi ro chuỗi cung ứng, không dính nvm |
 | Chất lượng và bảo mật | Quét secret ở pre-commit bằng công cụ cài qua pnpm (vd secretlint), gitleaks ở CI; Renovate hoặc Dependabot; `pnpm audit`; `@axe-core/playwright` | Secret, phụ thuộc, accessibility; không phải cài công cụ hệ thống |
 
 ## 9. Cấu trúc repo và quy tắc cô lập khi phát triển
@@ -344,7 +334,7 @@ agent-office/
 │  ├─ shared/      # Zod schema, NormalizedEvent, reducer, deriveStatus
 │  ├─ server/      # ingest, adapters, reconciler, tailer, approvals, SSE, SQLite
 │  ├─ web/         # React + PixiJS
-│  ├─ plugin/      # .claude-plugin/plugin.json, hooks/hooks.json, MCP server (channel), statusline wrapper
+│  ├─ plugin/      # .claude-plugin/plugin.json, hooks/hooks.json, hooks/*.sh, shim (ADR-007)
 │  └─ simulator/   # phát lại fixture, sinh kịch bản
 ├─ assets/         # sprite, tileset + CREDITS.md, license của từng gói
 ├─ fixtures/       # sự kiện thu được ở M0, đã scrub
@@ -444,7 +434,7 @@ Muốn thấy agent ở dự án nào thì dự án đó phải có hook. Đi th
 **Quy tắc:**
 - **Bật:** hook `SessionStart` gọi `agent-office ensure-running`: nếu chưa có server thì bật ở chế độ nền (tách hẳn khỏi hook) rồi thoát ngay. Hook luôn `exit 0` và có timeout ngắn (khoảng 1 giây). Gọi qua shim ổn định (bên dưới).
 - **Định nghĩa "session sống":** tiến trình `claude` còn đang mở, kể cả khi chỉ ngồi chờ người dùng nhập. Máy sleep thì session vẫn sống. Session để mở qua đêm không làm gì vẫn là session sống (câu hỏi 20).
-- **Tự tắt server:** chỉ khi **cả hai** tín hiệu cho thấy hết session: (1) đã nhận `SessionEnd` cho mọi session đã biết, và (2) kiểm tra định kỳ xác nhận không còn tiến trình `claude` tương ứng (pid lấy từ `claude agents --json`, statusline hoặc MCP server; xác nhận ở S5, S9). S1 đã thấy `ppid` của tiến trình hook chính là pid đó; statusline (S7) và MCP server (S3) cũng có pid qua `ppid`. S9: `kill -9` không có `SessionEnd`, nên tín hiệu (2) là bắt buộc. Cần cả hai vì session bị crash hoặc kill có thể không gửi `SessionEnd`. Sau đó chờ thời gian ân hạn (đề xuất 5 phút, cấu hình được; câu hỏi 18) rồi mới thoát. Có session mới trong lúc ân hạn thì huỷ việc tắt. Mọi bộ đếm tuân theo quy tắc sleep/wake ở mục 5.4. Vì không có LaunchAgent, server **tự thoát tự do**, không có tiến trình nào bật lại nó ngoài hook.
+- **Tự tắt server:** chỉ khi **cả hai** tín hiệu cho thấy hết session: (1) đã nhận `SessionEnd` cho mọi session đã biết, và (2) kiểm tra định kỳ xác nhận không còn tiến trình `claude` tương ứng (pid lấy từ `ppid` của hook, đối chiếu bằng `claude agents --json` và statusline; không dùng MCP server ở M1-M2, ADR-002; đã kiểm ở S5, S9). S1 đã thấy `ppid` của tiến trình hook chính là pid đó; statusline (S7) và MCP server (S3) cũng có pid qua `ppid`. S9: `kill -9` không có `SessionEnd`, nên tín hiệu (2) là bắt buộc. Cần cả hai vì session bị crash hoặc kill có thể không gửi `SessionEnd`. Sau đó chờ thời gian ân hạn (đề xuất 5 phút, cấu hình được; câu hỏi 18) rồi mới thoát. Có session mới trong lúc ân hạn thì huỷ việc tắt. Mọi bộ đếm tuân theo quy tắc sleep/wake ở mục 5.4. Vì không có LaunchAgent, server **tự thoát tự do**, không có tiến trình nào bật lại nó ngoài hook.
 - **Tắt tay:** `agent-office stop` dừng server ngay và ghi **cờ "đã tắt có chủ đích"**; cờ bị xoá khi có session mới mở. `agent-office start` bật tay (khi cần mở dashboard sớm). Khi dev dùng `pnpm dev:up`/`pnpm dev:down`.
 - **Bật lười (lưới an toàn khi server chết giữa chừng; cơ chế phục hồi duy nhất vì không có LaunchAgent; câu hỏi 19):** `SessionStart` chỉ chạy một lần lúc session bắt đầu, nên hook ở sự kiện kế tiếp, nếu không kết nối được server, sẽ gọi `ensure-running` rồi gửi lại đúng một lần. Điều kiện bắt buộc:
   - không phải bộ đếm giờ: chỉ hành động khi có hook bắn ra **và** không kết nối được;
@@ -460,21 +450,20 @@ Muốn thấy agent ở dự án nào thì dự án đó phải có hook. Đi th
 | Server không sống sẵn khi chưa có session nào | Dashboard hiện "chưa có server, mở một session Claude để bắt đầu" kèm lệnh `agent-office start` |
 | Không có thông báo macOS khi không có session nào chạy | Không cần: không có agent thì không có gì để thông báo |
 
-**Shim ổn định (chỉ cho hook):** `${CLAUDE_PLUGIN_ROOT}` đổi đường dẫn mỗi khi plugin cập nhật, và đường dẫn Node có thể chứa số phiên bản (nvm), nên hook gọi qua một shim nằm ngoài thư mục plugin:
+**Shim ổn định (chốt ở ADR-007, 16/11/2026):** hook không cần shim, vì `hooks.json` nằm trong plugin và `${CLAUDE_PLUGIN_ROOT}` luôn trỏ tới bản đang chạy (S8). Shim chỉ cần cho những thứ nằm ngoài plugin: lệnh statusline trong settings người dùng và việc bật server.
 
 ```
-~/Library/Application Support/agent-office/bin/agent-office   # shim ổn định
-~/Library/Logs/agent-office/                                  # log
+${CLAUDE_PLUGIN_DATA}/bin/agent-office      # shim ổn định = ~/.claude/plugins/data/<id>/bin/agent-office
+${CLAUDE_PLUGIN_DATA}/bin/shim.conf         # node=..., entry=... (đọc như dữ liệu, không source)
+${CLAUDE_PLUGIN_DATA}/logs/                 # log của shim
 ```
 
-- Trình cài đặt ghi đường dẫn Node tuyệt đối (`process.execPath`) vào config của shim. Trên máy hiện tại đường dẫn là `~/.nvm/versions/node/v22.21.1/bin/node`, nên shim phải kiểm tra đường dẫn còn tồn tại, ghi lỗi rõ ràng vào log, và có lệnh sửa lại. Phương án thay thế: đóng gói server thành file chạy độc lập để không phụ thuộc Node của máy. Chốt ở ADR-007.
-- Shim chỉ được tạo ở bản phát hành, không tạo khi dev.
-- **Kết quả S8** (`docs/spikes/s8-packaging.md`, chờ ADR-007):
-  - hook trong `hooks.json` dùng `${CLAUDE_PLUGIN_ROOT}` vẫn đúng sau mỗi lần cập nhật, nên hook không cần shim;
-  - shim cần cho statusline (nằm trong settings người dùng) và cho việc bật server;
-  - hook chuyển sự kiện viết bằng `sh` + `curl` mất 8 ms và không cần Node (bundle Node mất khoảng 35 ms);
-  - bản plugin cũ bị xoá 14 ngày sau khi cập nhật, nên `ensure-running` phải bật lại server khi phiên bản đổi;
-  - `${CLAUDE_PLUGIN_DATA}` giữ nguyên qua các lần cập nhật và là một chỗ đặt shim cần cân nhắc.
+- `${CLAUDE_PLUGIN_DATA}` giữ nguyên qua các lần cập nhật và tự bị xoá khi gỡ plugin (S8), nên không cần trình cài đặt hay bước dọn dẹp riêng.
+- Hook `SessionStart` tạo hoặc ghi lại shim khi chưa có hoặc phiên bản plugin đổi: `entry` là CLI của bản đang chạy, `node` là `command -v node` lúc đó (giữ giá trị cũ nếu không tìm thấy).
+- Shim kiểm tra `node` đã ghi; nếu mất (vd gỡ một phiên bản nvm) thì dùng `node` trên PATH và ghi cảnh báo; không có node nào thì ghi lỗi vào log và thoát 0. Luôn `exec` để giữ `ppid` là `claude` (S7). Lệnh `statusline` của shim chạy hoàn toàn bằng `sh` (`curl` chạy nền rồi `exec` lệnh cũ).
+- Server báo phiên bản ở `/health`; `ensure-running` bật lại server khi phiên bản plugin đổi, vì thư mục của bản cũ bị xoá 14 ngày sau khi cập nhật (S8).
+- Gỡ plugin xoá cả shim: lệnh statusline phải được khôi phục **trước** khi gỡ (`agent-office uninstall`, M3.5).
+- Shim chỉ được tạo ở bản phát hành, không tạo khi dev; khi dev script lấy thư mục dữ liệu từ `AGENT_OFFICE_HOME`, và plugin dev mang tên khác bản phát hành (`--plugin-dir` thay thế plugin cùng tên đã cài).
 
 **Tham số cấu hình** (đều là đề xuất chưa đo; phải cấu hình được qua file config hoặc biến môi trường, hiệu chỉnh sau S9, soak test và kịch bản sleep/wake):
 
@@ -528,7 +517,7 @@ Muốn thấy agent ở dự án nào thì dự án đó phải có hook. Đi th
 3. **Agent hỏi hoặc cần nhập liệu** (dashboard không trả lời hộ được). Panel hiện câu hỏi kèm nút "Mở terminal" nếu có extension VS Code. Nếu không có extension thì hiện tên dự án, thư mục và tty để bạn tự tìm.
 4. **Xem agent đang làm gì.** Bấm vào nhân vật hoặc vào dòng trong danh sách để mở panel bên phải: tiêu đề, trạng thái, thời gian, timeline.
 5. **Kiểm tra quota.** Header luôn hiện quota 5 giờ và 7 ngày. Bấm vào để mở trang Quota & Lịch sử (M4).
-6. **Lần đầu sử dụng.** Hiện checklist kết nối: server, hook, statusline, channel. Mục nào chưa xong thì có sẵn lệnh để cài.
+6. **Lần đầu sử dụng.** Hiện checklist kết nối: server, hook, statusline. Mục nào chưa xong thì có sẵn lệnh để cài.
 7. **Khi có sự cố.** Mất kết nối server, hook lỗi, hoặc phát hiện Claude Code đổi định dạng dữ liệu sẽ hiện banner trên cùng (xem 10.9).
 
 ### 10.3 Các màn hình
@@ -540,7 +529,7 @@ Muốn thấy agent ở dự án nào thì dự án đó phải có hook. Đi th
 | Panel duyệt | Hiện đè lên panel chi tiết; mô tả ở 10.5 | M2 |
 | Quota & Lịch sử | Biểu đồ quota, nhiệm vụ theo ngày và theo dự án | M4 |
 | Cài đặt | Thông báo; duyệt quyền (bật/tắt, danh sách lệnh nguy hiểm); hiển thị (văn phòng/danh sách, tỉ lệ pixel, giảm chuyển động); dữ liệu (thời gian lưu, xoá) | M1 → M4 |
-| Chẩn đoán | Trạng thái từng nguồn dữ liệu (hook, `claude agents --json`, transcript, statusline, channel), sự kiện gần nhất, phiên bản | M1 |
+| Chẩn đoán | Trạng thái từng nguồn dữ liệu (hook, `claude agents --json`, transcript, statusline), sự kiện gần nhất, phiên bản, đường dẫn Node của shim | M1 |
 
 ### 10.4 Wireframe lo-fi
 
@@ -585,7 +574,7 @@ CẦN BẠN (2)
   - tên dự án, thời gian đã chờ, tool;
   - **toàn bộ lệnh**, font mono, tự xuống dòng, không cắt bớt;
   - thư mục làm việc.
-- **Với Edit/Write:** hiện đường dẫn file và phần `input_preview` mà channel gửi sang. Channel giới hạn khoảng 3.500 ký tự nên không có diff đầy đủ; thay vào đó có nút "Xem trong VS Code".
+- **Với Edit/Write:** hiện đường dẫn file và diff dựng từ `tool_input` đầy đủ của hook `PermissionRequest` (không bị cắt như `input_preview` của channel); có thêm nút "Xem trong VS Code".
 - **Hai nút:** Từ chối bên trái, Cho phép bên phải.
   - Không nút nào được focus sẵn.
   - Ở v1 không có phím tắt cho "Cho phép".
@@ -649,7 +638,7 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
 | Chưa có session nào | Văn phòng trống, dòng "Mở Claude Code trong terminal để bắt đầu", kèm checklist kết nối |
 | Mất kết nối server | Banner đỏ "Mất kết nối, dữ liệu có thể đã cũ"; làm mờ vùng chính; tự kết nối lại |
 | Chưa cấu hình statusline | Ô quota hiện "Chưa cấu hình" kèm link hướng dẫn |
-| Channel chưa bật | Ẩn nút duyệt, thay bằng dòng "Duyệt trong terminal" |
+| Duyệt quyền đang tắt (công tắc tắt) hoặc phiên không tương tác | Ẩn nút duyệt, thay bằng dòng "Duyệt trong terminal" |
 | Phiên bản Claude Code mới hơn bảng tương thích | Chỉ ghi ở thanh trạng thái và trang Chẩn đoán. Claude Code cập nhật vài ngày một lần, nên banner bật thường trực sẽ thành nhiễu |
 | Parser gặp định dạng lạ (drift) | Banner vàng "Claude Code có thể đã đổi định dạng, một số trạng thái có thể sai", kèm nút xuất gói chẩn đoán (có từ M3.5). Bật khi tỉ lệ bản ghi không nhận dạng được trong 200 sự kiện gần nhất vượt ngưỡng (chốt ở M1). Tắt khi tỉ lệ xuống dưới ngưỡng, hoặc khi phiên bản đã được thêm vào `compat.json` |
 | Trạng thái chưa chắc chắn | Viền đứt nét, nhãn "Có thể…" |
@@ -808,7 +797,8 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
 - [ ] Viết ADR (2-3 giờ):
   - ADR-004: event sourcing + reducer thuần, chạy ở cả server lẫn trình duyệt;
   - ADR-005: lưu trữ (`node:sqlite` hay `better-sqlite3`, cấu trúc event log, `schema_version`);
-  - ADR-007: đóng gói plugin, shim ổn định, cách bật server (`SessionStart` là cách bật duy nhất, không dùng LaunchAgent), đường dẫn Node (dựa trên S8).
+  - ADR-007: đóng gói plugin, shim ổn định, cách bật server (`SessionStart` là cách bật duy nhất, không dùng LaunchAgent), đường dẫn Node (dựa trên S8). *(xong 16/11/2026: `docs/adr/ADR-007-packaging.md`)*
+  - Đã viết thêm theo quyết định của chủ dự án sau các spike: ADR-002 (cơ chế duyệt: hook `PermissionRequest`, `docs/adr/ADR-002-approval-mechanism.md`) và ADR-003 (kiểu hook: `sh` + `curl`, `docs/adr/ADR-003-hook-type.md`). Còn ADR-001, ADR-004, ADR-005.
 - [ ] Buổi chốt go/no-go (1-2 giờ): ghi đạt hoặc không đạt cho từng spike, rồi chọn một trong ba hướng: **tiếp tục**, **đổi hướng** hoặc **cắt phạm vi**. Ghi kết quả vào ADR-008.
 
 **Xong khi có:**
@@ -824,7 +814,7 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
 Phần giữ nguyên từ v2: 30-43 giờ. Thêm theo review: 13-21 giờ. Thêm theo quy tắc cô lập: 7-11 giờ. Thêm theo vòng đời server (v3.1): 5-8 giờ. Số giờ ghi ở từng mục.
 
 - [ ] Monorepo, TS strict, lint, format, CI (lint, test, build).
-- [ ] Plugin: `hooks/hooks.json` gửi tới `POST /ingest/hook` kèm token. Cắt bớt payload (`tool_response`) trước khi gửi.
+- [ ] Plugin: `hooks/hooks.json` gọi các script `sh` + `curl` (ADR-003) gửi tới `POST /ingest/hook` kèm token; script kiểm tra công tắc tắt trước tiên, `curl -m 1`, luôn `exit 0`. Payload gửi nguyên văn, server cắt bớt `tool_response` khi ghi event log (script `sh` không xử lý JSON).
 - [ ] Server Hono: ingest + Zod, event log trong SQLite, reducer từ `shared`, SSE có `Last-Event-ID`.
 - [ ] Reconciler cho `claude agents --json`, poll thích ứng: chậm khi rảnh, nhanh khi có agent chờ duyệt. Kiểm tra liveness theo tiến trình.
 - [ ] Tailer transcript theo `transcript_path`:
@@ -834,7 +824,7 @@ Phần giữ nguyên từ v2: 30-43 giờ. Thêm theo review: 13-21 giờ. Thêm
 - [ ] Web dạng danh sách theo wireframe ở 10.4, sắp theo mức chú ý ở 10.6. Timeline 20 hành động gần nhất. Thông báo theo 10.7.
 - [ ] Thiết kế D2: design tokens và component (10.8), các trạng thái đặc biệt (10.9), checklist kết nối cho lần đầu dùng, trang chẩn đoán, PWA manifest.
 - [ ] Statusline wrapper đưa % quota lên header.
-- [ ] Tự khởi động server bằng hook `SessionStart`: spawn tách hẳn khỏi hook để hook trả về ngay, gọi qua shim ổn định (mục 9.2). Khi dev thì không dùng cách này mà chạy `pnpm dev:up`.
+- [ ] Tự khởi động server bằng hook `SessionStart`: tạo hoặc ghi lại shim trong `${CLAUDE_PLUGIN_DATA}` khi phiên bản plugin đổi, rồi gọi `agent-office ensure-running` qua shim; spawn tách hẳn khỏi hook để hook trả về ngay; bật lại server khi phiên bản ở `/health` khác phiên bản plugin (mục 9.2, ADR-007). Khi dev thì không dùng cách này mà chạy `pnpm dev:up`.
 - [ ] Bảo mật nền: token, kiểm tra `Origin`/`Host`, file quyền 0600, redact.
 - [ ] Phục hồi khi khởi động lại, theo mục 5.3. (2-3 giờ)
 - [ ] Vận hành server chạy nền (3-5 giờ):
@@ -905,8 +895,10 @@ Phần giữ nguyên từ v2: 30-43 giờ. Thêm theo review: 13-21 giờ. Thêm
 
 ### M2: Duyệt quyền từ dashboard (18-30 giờ)
 
-- [ ] MCP server channel trong plugin, kết nối tới server bằng token.
-- [ ] Khi thử plugin và channel, chỉ chạy ở mức 2 hoặc 3 (mục 9.2), không cài vào cấu hình chính.
+- [ ] Hook `PermissionRequest` (`sh` + `curl`, ADR-002, ADR-003): kiểm tra công tắc tắt, bỏ qua phiên không tương tác, gửi yêu cầu kèm token, in nguyên văn quyết định của server; test với server chạy, tắt, treo và phiên `sdk-cli`.
+- [ ] Endpoint chờ quyết định trên server: giữ yêu cầu trong cửa sổ duyệt, trả `allow`/`deny`/`updatedInput` hoặc rỗng; nhận biết kết nối hook bị đóng (bấm No trong terminal).
+- [ ] Trả lời câu hỏi có lựa chọn (`AskUserQuestion`, `updatedInput.answers`) và duyệt kế hoạch (`ExitPlanMode`); quyết định có dùng `setMode` để giữ chế độ `default` hay không (ADR-002).
+- [ ] Khi thử plugin, chỉ chạy ở mức 2 hoặc 3 (mục 9.2), không cài vào cấu hình chính.
 - [ ] Dịch vụ approvals: nonce, TTL, dùng một lần, audit log, công tắc bật/tắt.
 - [ ] Panel duyệt theo 10.5:
   - hiện toàn bộ lệnh;
@@ -914,8 +906,7 @@ Phần giữ nguyên từ v2: 30-43 giờ. Thêm theo review: 13-21 giờ. Thêm
   - lệnh nguy hiểm phải xác nhận lần hai;
   - xếp hàng khi có nhiều yêu cầu;
   - xử lý các trường hợp "đã xử lý trong terminal" và "hết hạn".
-- [ ] Đồng bộ khi terminal trả lời trước: đóng yêu cầu trên dashboard, suy ra từ hook hoặc từ `status: busy`.
-- [ ] Dùng phương án dự phòng theo ADR-002 nếu channel không dùng được.
+- [ ] Đồng bộ khi terminal trả lời trước: đóng yêu cầu trên dashboard khi kết nối hook đóng (bấm No) hoặc khi thấy `PostToolUse`/`Stop`/`UserPromptSubmit` của cùng phiên (bấm Yes), hoặc từ `status: busy`.
 - [ ] Bộ test bảo mật tự động trong CI (3-5 giờ), gồm các trường hợp:
   - request sai `Host`, sai `Origin`;
   - thiếu hoặc sai CSRF token;
@@ -980,7 +971,7 @@ Phần giữ nguyên từ v2: 30-43 giờ. Thêm theo review: 13-21 giờ. Thêm
   - issue/PR template, `CODE_OF_CONDUCT.md`;
   - tuyên bố không liên kết với Anthropic; kiểm tra cách dùng tên "Claude" và logo;
   - chính sách telemetry: không thu thập gì, không gửi dữ liệu ra ngoài máy.
-- [ ] Tài liệu người dùng (3-5 giờ): hướng dẫn cài đặt từng bước; troubleshooting và FAQ (hook không gửi sự kiện, channel không bật, quota không hiện…); trình duyệt được hỗ trợ (theo câu hỏi 4).
+- [ ] Tài liệu người dùng (3-5 giờ): hướng dẫn cài đặt từng bước; troubleshooting và FAQ (hook không gửi sự kiện, không tìm thấy Node, duyệt quyền không hiện, quota không hiện…); trình duyệt được hỗ trợ (theo câu hỏi 4).
 - [ ] Gói chẩn đoán đã redact: nút xuất ở trang Chẩn đoán, dùng để đính kèm vào issue. (2-3 giờ)
 - [ ] README (3-5 giờ):
   - GIF, sơ đồ, link ADR, số liệu đo (overhead, độ chính xác), hạn chế, bảng tương thích;
@@ -1044,10 +1035,10 @@ Phần giữ nguyên từ v2: 30-43 giờ. Thêm theo review: 13-21 giờ. Thêm
 | Rủi ro | Cách giảm |
 |---|---|
 | Định dạng hook, transcript, agent view, channel đổi theo phiên bản (trên máy đã thấy 2 phiên bản chỉ trong vài ngày) | Cô lập trong adapter; golden test với fixture; `compat.json` và `compat-run`; phát hiện drift khi đang chạy (10.9); gặp dạng lạ thì ghi log chứ không crash |
-| Channel còn là research preview và cần cờ dev | Tách chức năng duyệt khỏi phần giám sát; có phương án dự phòng theo ADR-002; có công tắc tắt |
+| Định dạng `PermissionRequest` hoặc `updatedInput` đổi giữa các phiên bản (changelog 2.1.300, 2.1.323) | Tách chức năng duyệt khỏi phần giám sát; golden test với fixture và `compat.json`; hook lỗi thì trả "không quyết định" để terminal xử lý; có công tắc tắt (ADR-002) |
 | Chức năng duyệt bị lạm dụng (CSRF, DNS rebinding, tiến trình lạ) | Các biện pháp ở mục 6, threat model, test bảo mật trong CI |
 | Hook làm chậm hoặc làm hỏng agent | Dùng `async`/`http`, không in stdout, exit 0, đặt `timeout`; benchmark overhead |
-| Poll `claude agents --json` tốn CPU | Poll thích ứng; đo ở M0; chuyển sang liveness của MCP server nếu ổn định |
+| Poll `claude agents --json` tốn CPU | Poll thích ứng; đo ở M0 (S2: khoảng 0,12 s CPU mỗi lần); liveness hằng ngày dùng `kill -0` theo pid lấy từ hook (S9), chỉ đối chiếu bằng `claude agents --json` định kỳ |
 | Số liệu token và quota sai | Dedupe theo `message.id`; ưu tiên số do Claude Code tự tính; ghi rõ là "ước tính" |
 | Sa đà vào pixel art | M1 đã có UI danh sách dùng được ngay; vẽ theo vòng (placeholder → v1 → chỉnh sửa); giới hạn số animation |
 | Asset vi phạm license | Chỉ dùng CC0 hoặc tự vẽ; có `assets/CREDITS.md`; không lấy asset của dự án khác |
@@ -1055,7 +1046,7 @@ Phần giữ nguyên từ v2: 30-43 giờ. Thêm theo review: 13-21 giờ. Thêm
 | Lộ dữ liệu nhạy cảm | Cắt payload, redact, file quyền 0600, chính sách giữ dữ liệu; fixture tổng hợp và kiểm tra trong CI |
 | Lộ dữ liệu qua lịch sử git (không xoá được) | Dữ liệu thô trong `.dev-raw/` (ngoài git); scrub có test; quét secret ở pre-commit, gitleaks ở CI; làm xong trước commit đầu tiên |
 | Phụ thuộc bị chèn mã độc (plugin chạy với quyền của bạn và gửi được verdict) | Lockfile, pin phiên bản, Renovate/Dependabot, audit; bundle plugin để không phải cài phụ thuộc lúc chạy |
-| Cập nhật plugin hoặc đổi phiên bản Node (nvm) làm hỏng đường dẫn mà hook gọi tới | Shim ổn định nằm ngoài thư mục plugin (mục 9.2); shim kiểm tra đường dẫn Node và ghi lỗi rõ ràng; spike S8, ADR-007 |
+| Cập nhật plugin hoặc đổi phiên bản Node (nvm) làm hỏng đường dẫn | Hook là `sh` + `curl`, gọi qua `${CLAUDE_PLUGIN_ROOT}`, không cần Node (ADR-003); shim trong `${CLAUDE_PLUGIN_DATA}` được `SessionStart` ghi lại khi phiên bản đổi, kiểm tra đường dẫn Node, dùng `node` trên PATH khi cần và ghi lỗi rõ ràng (S8, ADR-007) |
 | Gỡ plugin làm hỏng statusline của bạn | Script gỡ cài đặt khôi phục lệnh statusline cũ; test gỡ cài đặt ở M3.5 |
 | CI không chạy được kịch bản thật (cần đăng nhập, tốn quota, có bước thao tác tay) | `compat-run` chạy trên máy; CI chỉ theo dõi phiên bản mới và chạy golden test; smoke test bằng API key là tuỳ chọn (câu hỏi 6) |
 | Việc phát triển ảnh hưởng tới các dự án khác trên máy (hook lỗi, ghi file, tiến trình nền) | Các mức cô lập và quy tắc cứng ở mục 9.2; test "không ghi ngoài repo" và test tailer chỉ đọc; công tắc tắt nhanh mọi hook |
@@ -1182,3 +1173,17 @@ Các điểm dưới đây chưa được đối chiếu đầy đủ với tài
 - Mọi con số của vòng đời server là đề xuất chưa đo, hiệu chỉnh sau S9 và soak test.
 - Việc "đo RAM server khi rảnh và RAM tab dashboard" (mục 10 của file vòng đời) chưa đưa vào M0 vì chưa có server; đo ở M1 hoặc soak test.
 - Bảng 0.1 vẫn mang tiêu đề "Thay đổi so với v2"; hai hàng của v3.1 được thêm vào đó theo patch.
+
+## Ghi chú cập nhật sau các spike M0 (16/11/2026)
+
+**Quyết định của chủ dự án** (ghi vào ADR-002, ADR-003, ADR-007 trong `docs/adr/`):
+1. Duyệt quyền bằng hook `PermissionRequest`; channel và MCP server bỏ khỏi M1-M2, đưa vào backlog cùng "gửi prompt từ dashboard" (S3, S4, S5).
+2. Shim đặt trong `${CLAUDE_PLUGIN_DATA}/bin/` (tự xoá khi gỡ plugin) thay cho `~/Library/Application Support/agent-office/bin/`; hook không đi qua shim (S8).
+3. Hook chuyển sự kiện và hook `PermissionRequest` viết bằng `sh` + `curl`, không cần Node (S6, S8).
+4. M1-M2 không có MCP server; liveness dùng pid lấy từ `ppid` của hook, kiểm tra bằng `kill -0`, đối chiếu bằng `claude agents --json` (S5, S9).
+
+**Đã sửa theo các quyết định:** sơ đồ kiến trúc (mục 3), bảng nguồn dữ liệu và ánh xạ (mục 4), ghép yêu cầu duyệt (5.1), ý 5 của 5.3, cơ chế duyệt (mục 6), tech stack (mục 8), cấu trúc repo (9.1), shim và nguồn pid (9.2), checklist lần đầu, trang chẩn đoán, panel duyệt và trạng thái đặc biệt (mục 10), checklist M2, tài liệu người dùng, ba hàng rủi ro.
+
+**Kết quả spike làm đổi plan:** S9 cho thấy đồng hồ đơn điệu của Node vẫn chạy khi máy ngủ trên máy Apple Silicon, nên mục 5.4 đổi sang phát hiện wake bằng tick trễ.
+
+**Giữ nguyên để làm lịch sử:** bảng thay đổi ở mục 0, bảng và checklist spike (S3, S5 vẫn mô tả channel và MCP server như lúc thử), các hàng đã kiểm ở mục 16.
