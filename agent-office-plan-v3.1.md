@@ -126,7 +126,7 @@ Codex CLI / Cursor ────────────────────�
 | Hooks | Sự kiện tức thời: prompt, tool bắt đầu/kết thúc, yêu cầu quyền, dừng, lỗi API, compact, subagent | Không có hook nào khi bạn duyệt hoặc từ chối thủ công, hay khi nhấn Esc. `PermissionRequest` không có `tool_use_id`. Hook chạy cả trong subagent (có `agent_id`) |
 | `claude agents --json` | Trạng thái chính thức: `status` (`busy`/`waiting`/`idle`), `waitingFor`, `pid`, `sessionId` | Research preview, chỉ hỗ trợ poll; có thể khởi động supervisor chạy nền; cần đo chi phí mỗi lần gọi |
 | Transcript JSONL | Chi tiết tool, dấu ngắt `[Request interrupted by user…`, token, `ai-title`, `system/away_summary` | Định dạng đổi theo phiên bản; có bản ghi không có trong tài liệu; token phải dedupe theo `message.id` (trên máy hiện tại, cộng thẳng ra gấp khoảng 2,2 lần) |
-| Statusline | `rate_limits.five_hour` / `seven_day` (`used_percentage`, `resets_at`), `process.pid`, `cost.total_cost_usd` | `rate_limits` chỉ có với gói Pro/Max/Ultra và chỉ sau response đầu tiên; người dùng thường đã có statusline riêng nên cần wrapper |
+| Statusline | `rate_limits.five_hour` / `seven_day` (`used_percentage`, `resets_at`), `process.pid`, `cost.total_cost_usd` | `rate_limits` chỉ có với gói Pro/Max/Ultra và chỉ sau response đầu tiên (đã kiểm ở S7); statusline chạy theo sự kiện, không định kỳ; người dùng thường đã có statusline riêng nên cần wrapper |
 | MCP server của plugin (channel) | Duyệt quyền; tín hiệu sống (stdin đóng nghĩa là session đã kết thúc, kể cả khi crash) | Channel đang là research preview; plugin tự viết cần cờ `--dangerously-load-development-channels` |
 | OpenTelemetry (tuỳ chọn) | `claude_code.tool_decision` (accept/reject), `claude_code.api_request` | Mặc định 5 giây mới xuất một lần; để sau |
 
@@ -790,7 +790,7 @@ Có bốn mức chú ý. Chỉ mức 1 được dùng chuyển động và âm t
   - có sống đúng bằng vòng đời session không;
   - lấy `pid` cha và `session_id` bằng cách nào.
 - [x] **S6.** Đo overhead mỗi tool call với ba kiểu hook: command đồng bộ (Node), `async`, `http`. Kiểm tra hook `http` hoạt động thế nào khi server tắt. *(xong 16/11/2026: `docs/spikes/s6-hook-overhead.md`)*
-- [ ] **S7.** Statusline wrapper: có nhận được `rate_limits` và `process.pid` không.
+- [x] **S7.** Statusline wrapper: có nhận được `rate_limits` và `process.pid` không. *(xong 16/11/2026: `docs/spikes/s7-statusline.md`)*
 - [ ] **S8.** Đóng gói plugin và đường dẫn server:
   - plugin có cần phụ thuộc lúc chạy không, có bundle được thành file JS không;
   - `${CLAUDE_PLUGIN_ROOT}` đổi mỗi khi plugin cập nhật, nên hook phải gọi qua shim ổn định nằm ngoài thư mục plugin (mục 9.2). Kiểm tra cách xử lý khi đường dẫn Node có chứa số phiên bản (máy đang dùng nvm);
